@@ -1,0 +1,14 @@
+# build output
+*.exe
+dist/
+
+# signing material — never commit certificates
+*.pfx
+*.p12
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vs/
+.vscode/

@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#08090b">
+<title>FM-Stream Deck</title>
+<meta name="apple-mobile-web-app-title" content="FM-Stream Deck">
+<meta name="application-name" content="FM-Stream Deck">
+<style>
+*{-webkit-box-sizing:border-box;box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:#08090b;color:#e6e8ee;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:rgba(0,0,0,0);overflow:hidden;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+button{font-family:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+svg{display:inline-block;vertical-align:middle}
+
+/* topo */
+#top{position:fixed;top:0;left:0;right:0;height:48px;background:#101216;border-bottom:1px solid #1e2128;padding:0 8px;z-index:10}
+#st{float:left;height:48px;line-height:48px;max-width:30%;max-width:-webkit-calc(100% - 290px);max-width:calc(100% - 290px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:14px}
+#dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#e5484d;margin-right:8px}
+#dot.on{background:#30a46c}
+#dot.conn{background:#f1c40f}
+#acts{float:right;padding-top:7px}
+/* transmitir / gravar no topo */
+.ob{height:34px;margin-left:6px;border-radius:8px;border:1px solid #262a33;background:#171a20;padding:0 10px;vertical-align:top;font-size:12px;font-weight:800;color:#c9ced8;white-space:nowrap}
+.ob svg{margin:-2px 5px 0 0}
+.ob.on{background:#e5484d;border-color:#e5484d;color:#fff}
+.ob.paused{background:#8a5a00;border-color:#d69a1b;color:#fff}
+.off .ob{opacity:.4}
+@media (max-width:519px){#st{max-width:-webkit-calc(100% - 215px);max-width:calc(100% - 215px)}}
+@media (max-width:359px){.ob span{display:none}.ob svg{margin-right:0}#st{max-width:-webkit-calc(100% - 150px);max-width:calc(100% - 150px)}}
+.hb{height:34px;min-width:40px;margin-left:6px;border-radius:8px;border:1px solid #262a33;background:#171a20;padding:0 8px;vertical-align:top}
+
+/* área do deck */
+#deckWrap{position:absolute;top:48px;left:0;right:0;bottom:60px;overflow:hidden}
+#deck{position:absolute;top:0;left:0;right:0;bottom:0}
+.off #deck{opacity:.35;pointer-events:none}
+#pager{display:none;position:absolute;left:0;right:0;bottom:0;height:34px;text-align:center;line-height:34px}
+#pager button{width:56px;height:30px;border-radius:15px;border:1px solid #262a33;background:#15171c;font-size:14px;vertical-align:middle}
+#pgTxt{display:inline-block;min-width:70px;color:#9aa1ad;font-size:13px;font-weight:600}
+#empty{display:none;position:absolute;left:20px;right:20px;top:30%;text-align:center;color:#8b93a1;line-height:1.6}
+#empty .btn{margin-top:12px}
+
+/* preview da cena (screenshots do OBS) no topo das teclas */
+#prev{display:none;position:absolute;top:0;left:0;right:0;overflow:hidden}
+.pv{display:none;position:absolute;background:#000;border-radius:8px;overflow:hidden}
+.pv:after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;-webkit-box-shadow:inset 0 0 0 2px #e5484d;box-shadow:inset 0 0 0 2px #e5484d;pointer-events:none}
+.pv.g:after{-webkit-box-shadow:inset 0 0 0 2px #30a46c;box-shadow:inset 0 0 0 2px #30a46c}
+.pvfull .pv{border-radius:0}
+.pv img{position:absolute;top:0;display:block;width:100%;height:100%;border:0;-webkit-transition:opacity .15s;transition:opacity .15s}
+.pv img.noimg{visibility:hidden}
+.pv.stale img{opacity:.4}
+.pvt{position:absolute;top:4px;left:4px;font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;background:#e5484d;color:#fff;line-height:14px}
+.pv.g .pvt{background:#30a46c}
+.pvn{position:absolute;left:0;right:0;bottom:0;padding:2px 6px;font-size:11px;font-weight:700;line-height:16px;background:rgba(0,0,0,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pvMin{position:absolute;width:30px;height:24px;border-radius:6px;border:0;background:rgba(0,0,0,.6);font-size:11px;padding:0}
+#pvShow{display:none;position:absolute;left:8px;right:8px;top:6px;height:26px;border-radius:13px;border:1px solid #262a33;background:#15171c;color:#9aa1ad;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}
+.pvmin #pvShow{display:block}
+.pvmin .pv,.pvmin #pvMin{display:none!important}
+
+/* mesa de som (página Áudio) */
+#mixer{display:none;position:absolute;top:0;left:0;right:0;bottom:0;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+#mxIn{position:relative;height:100%}
+.mixon #mixer{display:block}
+.mixon #deck,.mixon #pager{display:none!important}
+.st{position:absolute;top:0;bottom:0;background:#101216;border-right:1px solid #1e2128}
+.sn{position:absolute;top:0;left:0;right:0;height:36px;padding:4px 4px 0;font-size:12px;font-weight:700;line-height:15px;text-align:center;overflow:hidden;word-wrap:break-word;cursor:pointer}
+.sdb{position:absolute;top:36px;left:0;right:0;height:18px;line-height:18px;text-align:center;font-size:12px;font-family:Menlo,Consolas,monospace;color:#9aa1ad}
+.st.muted .sdb{color:#e5484d}
+.sf{position:absolute;top:58px;left:0;right:0;touch-action:none;cursor:ns-resize}
+.srail{position:absolute;top:0;bottom:0;left:50%;width:6px;margin-left:-3px;border-radius:3px;background:#05060a;-webkit-box-shadow:inset 0 1px 2px #000;box-shadow:inset 0 1px 2px #000}
+.smk{position:absolute;font-size:9px;line-height:10px;margin-top:-5px;color:#5d6472;font-family:Menlo,Consolas,monospace}
+.sm{position:absolute;top:0;bottom:0;width:5px;border-radius:2px;overflow:hidden;background:#2ecc71;background:-webkit-linear-gradient(bottom,#2ecc71 0%,#2ecc71 70%,#f1c40f 85%,#e74c3c 100%);background:linear-gradient(to top,#2ecc71 0%,#2ecc71 70%,#f1c40f 85%,#e74c3c 100%)}
+.sm i{position:absolute;top:0;left:0;right:0;height:100%;background:#05060a}
+.nometer .sm{display:none}
+.st.muted .sm{opacity:.3}
+.ft{position:absolute;border-radius:6px;background:#c9ced8;background-image:-webkit-linear-gradient(top,#f0f2f6,#8f96a3);background-image:linear-gradient(#f0f2f6,#8f96a3);-webkit-box-shadow:0 2px 4px rgba(0,0,0,.7);box-shadow:0 2px 4px rgba(0,0,0,.7)}
+.ft:after{content:'';position:absolute;left:4px;right:4px;top:50%;height:2px;margin-top:-1px;background:#1b1e25}
+.ft.grab{background-image:-webkit-linear-gradient(top,#ffffff,#a9b3c9);background-image:linear-gradient(#ffffff,#a9b3c9)}
+.st.muted .ft{opacity:.55}
+.sbtn{position:absolute;left:6px;right:6px;border-radius:8px;border:1px solid #262a33;background:#171a20;font-size:12px;font-weight:800;color:#9aa1ad;padding:0}
+.sbtn.on{background:#e5484d;border-color:#e5484d;color:#fff}
+.sbtn.mon.on{background:#2a46a8;border-color:#5b8cff}
+.sbtn.mon.only{background:#8a5a00;border-color:#d69a1b;color:#fff}
+
+/* teclas */
+.key{position:absolute;border-radius:14px;background:#1b1e25;background-image:-webkit-linear-gradient(top,#272b34,#14161b);background-image:linear-gradient(#272b34,#14161b);-webkit-box-shadow:0 3px 0 #000,inset 0 1px 0 rgba(255,255,255,.07);box-shadow:0 3px 0 #000,inset 0 1px 0 rgba(255,255,255,.07);color:#fff;overflow:hidden;cursor:pointer;-webkit-transition:-webkit-transform .08s;transition:transform .08s}
+.key.down{-webkit-transform:scale(.92);transform:scale(.92)}
+.ki{position:absolute;left:0;right:0;top:15%;text-align:center;line-height:0}
+.kl{position:absolute;left:6%;right:6%;bottom:9%;line-height:1.15;max-height:2.35em;overflow:hidden;text-align:center;font-weight:700;word-wrap:break-word;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.kt{position:absolute;top:7%;left:8%;font-size:.7em;font-weight:800;padding:1px 4px;border-radius:3px;background:#e5484d;color:#fff;line-height:1.3}
+.kt.g{background:#30a46c}
+.kdb{position:absolute;top:7%;right:8%;font-size:.72em;opacity:.75;font-family:Menlo,Consolas,monospace}
+.key.live{-webkit-box-shadow:0 0 0 3px #e5484d,0 0 18px rgba(229,72,77,.55);box-shadow:0 0 0 3px #e5484d,0 0 18px rgba(229,72,77,.55)}
+.key.prev{-webkit-box-shadow:0 0 0 3px #30a46c;box-shadow:0 0 0 3px #30a46c}
+.key.k-audio .ki{top:11%}
+.key.k-audio .kl{bottom:21%}
+.km{position:absolute;left:10%;right:10%;bottom:9%;height:6px;border-radius:3px;overflow:hidden;background:#2ecc71;background:-webkit-linear-gradient(left,#2ecc71 0%,#2ecc71 70%,#f1c40f 85%,#e74c3c 100%);background:linear-gradient(to right,#2ecc71 0%,#2ecc71 70%,#f1c40f 85%,#e74c3c 100%)}
+.kmm{position:absolute;top:0;right:0;bottom:0;width:100%;background:#0a0b0e}
+.nometer .km{display:none}
+.nometer .key.k-audio .kl{bottom:10%}
+.key.muted{background:#4a1418;background-image:-webkit-linear-gradient(top,#6a1c22,#3a0f13);background-image:linear-gradient(#6a1c22,#3a0f13)}
+.key.muted .km{opacity:.25}
+.key.on-red{background:#b4232a;background-image:-webkit-linear-gradient(top,#e5484d,#9c1d23);background-image:linear-gradient(#e5484d,#9c1d23)}
+.key.on-green{background:#1d6b47;background-image:-webkit-linear-gradient(top,#30a46c,#18573a);background-image:linear-gradient(#30a46c,#18573a)}
+.key.on-amber{background:#8a5a00;background-image:-webkit-linear-gradient(top,#d69a1b,#7a5000);background-image:linear-gradient(#d69a1b,#7a5000)}
+.key.on-blue{background:#2a46a8;background-image:-webkit-linear-gradient(top,#5b8cff,#2a46a8);background-image:linear-gradient(#5b8cff,#2a46a8)}
+
+/* dock */
+#dock{position:fixed;left:0;right:0;bottom:0;height:60px;background:#101216;border-top:1px solid #1e2128;z-index:10}
+#dock button{float:left;width:25%;height:60px;border:0;background:none;color:#7d8594;font-size:11px;font-weight:600;padding:6px 0 0;position:relative}
+#dock button span{display:block;margin-top:2px}
+#dock button.act{color:#fff}
+#dock button.act svg{stroke:#5b8cff}
+#tabChat{display:none}
+.haschat #tabChat{display:block}
+.haschat #dock button{width:20%}
+.badge{display:none;position:absolute;top:5px;left:50%;margin-left:6px;background:#e5484d;color:#fff;font-size:10px;border-radius:9px;padding:1px 5px;line-height:14px}
+
+/* chat */
+#chat{display:none;position:absolute;top:48px;left:0;right:0;bottom:60px;background:#0d0f13;z-index:5}
+.chatopen #chat{display:block}
+@media (min-width:1000px){
+  .haschat #deckWrap,.haschat #dock{right:340px}
+  .haschat #chat{display:block;left:auto;width:340px;bottom:0;border-left:1px solid #1e2128}
+  .haschat #tabChat{display:none}
+  .haschat #dock button{width:25%}
+}
+/* chat junto com as teclas (telas < 1000 px): abaixo no retrato, ao lado na paisagem */
+#splitBar{display:none;position:absolute;left:0;right:0;height:14px;background:#101216;border-top:1px solid #1e2128;z-index:6;cursor:row-resize;touch-action:none}
+#splitBar i{position:absolute;left:50%;top:5px;width:44px;height:4px;margin-left:-22px;border-radius:2px;background:#3a3f4b}
+.split #splitBar{display:block}
+.split #chat{display:block;overflow:hidden}
+.split #tabChat{display:none}
+.split #dock button{width:25%}
+.splitside #splitBar{top:48px;bottom:60px;width:14px;height:auto;left:auto;cursor:col-resize;border-top:0;border-left:1px solid #1e2128}
+.splitside #splitBar i{left:4px;top:50%;width:4px;height:44px;margin:-22px 0 0}
+.splitside #chat{border-left:1px solid #1e2128}
+.chatmin #newBtn{visibility:hidden}
+.chatmin .chhd{cursor:pointer}
+#minUnread{display:none;margin-left:8px;background:#e5484d;color:#fff;font-size:11px;font-style:normal;border-radius:9px;padding:1px 6px;vertical-align:1px}
+.chatmin #minUnread.has{display:inline-block}
+.chhd{position:absolute;top:0;left:0;right:0;height:40px;line-height:40px;padding:0 10px;background:#121419;border-bottom:1px solid #1e2128;white-space:nowrap;overflow:hidden}
+.sz{float:right}
+.sz button{height:30px;min-width:38px;margin-left:4px;border-radius:6px;border:1px solid #262a33;background:#171a20;font-weight:700;font-size:13px}
+#chatList{position:absolute;top:40px;left:0;right:0;bottom:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 10px 30px;word-wrap:break-word;line-height:1.35;-webkit-user-select:text;user-select:text}
+.msg{padding:3px 0}
+.msg .n{font-weight:700}
+.msg.act .t{font-style:italic}
+.msg.sys{color:#8b93a1;font-style:italic;font-size:.9em}
+.msg.note{background:#2a2140;border-left:3px solid #8e4ec6;padding:5px 7px;margin:4px 0;border-radius:4px}
+.bd{display:inline-block;font-size:10px;font-weight:700;padding:0 4px;border-radius:3px;margin-right:4px;vertical-align:1px;background:#444;color:#fff;font-style:normal;line-height:15px}
+.bd-host{background:#e5484d}.bd-mod{background:#30a46c}.bd-vip{background:#d6409f}.bd-sub{background:#8e4ec6}
+.emo{height:1.7em;vertical-align:middle;margin:-.35em 1px}
+#frameWrap{display:none;position:absolute;top:40px;left:0;right:0;bottom:0}
+#frameWrap iframe{width:100%;height:100%;border:0;display:block;background:#fff}
+#newBtn{display:none;position:absolute;left:50%;bottom:12px;width:180px;margin-left:-90px;height:36px;border-radius:18px;border:0;background:#5b8cff;color:#fff;font-weight:700;font-size:13px}
+
+/* janelas */
+.modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:50;display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.modal .box{max-width:470px;margin:0 auto 20px;background:#16191f;border-radius:14px;padding:16px;border:1px solid #262a33}
+#vol .box{margin-top:12%}
+#vName{font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#vDb{font-size:34px;font-weight:700;font-family:Menlo,Consolas,monospace;text-align:center;margin:14px 0 6px}
+.vrow{position:relative;height:56px;margin:8px 0}
+.vrow .btn{position:absolute;top:6px;width:52px;margin:0;font-size:22px;padding:0}
+#vDn{left:0}#vUp{right:0}
+.vrow .rng{position:absolute;left:62px;right:62px;top:0;height:56px}
+.rng input{width:100%;height:56px;margin:0;padding:0}
+.fr .rng input{-webkit-appearance:none;appearance:none;background:transparent}
+.fr .rng input:focus{outline:none}
+.fr .rng input::-webkit-slider-runnable-track{height:10px;background:#2c313c;border-radius:5px}
+.fr .rng input::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:#5b8cff;margin-top:-12px;border:3px solid #e6e8ee}
+.fr .rng input::-moz-range-track{height:10px;background:#2c313c;border-radius:5px}
+.fr .rng input::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#5b8cff;border:3px solid #e6e8ee}
+#vMute.on{background:#e5484d;color:#fff}
+h3{margin:18px 0 4px;font-size:16px}
+h3:first-child{margin-top:0}
+#set label{display:block;margin:12px 0 4px;color:#9aa1ad;font-size:13px}
+#set label.chk{color:#e6e8ee;font-size:14px;margin:14px 0;line-height:22px}
+.chk input{width:20px;height:20px;vertical-align:middle;margin:0 8px 0 0}
+#set input[type=text],#set input[type=password],#set input[type=number],#set select{width:100%;height:44px;padding:0 10px;border-radius:8px;border:1px solid #2c313c;background:#0d0f13;color:#e6e8ee;font-size:16px;-webkit-appearance:none;-webkit-user-select:text;user-select:text}
+.hint{font-size:12px;color:#7d8594;margin-top:5px;line-height:1.45}
+.warn{display:none;background:#3a2a12;border:1px solid #7a5a1c;color:#f5d48a;border-radius:8px;padding:8px 10px;font-size:13px;margin:8px 0;line-height:1.4}
+.row{margin-top:14px}
+.btn{height:44px;padding:0 16px;border-radius:8px;border:0;background:#2c313c;font-weight:600;font-size:15px;margin:0 6px 6px 0}
+.btn.pri{background:#5b8cff;color:#fff}
+#toast{display:none;position:fixed;left:10px;right:10px;bottom:72px;z-index:60;background:#2c313c;color:#fff;border-radius:10px;padding:12px 14px;text-align:center;font-size:14px;-webkit-box-shadow:0 4px 16px rgba(0,0,0,.5);box-shadow:0 4px 16px rgba(0,0,0,.5)}
+</style>
+</head>
+<body class="off">
+
+<div id="top">
+  <div id="st"><span id="dot"></span><span id="stTxt">Desconectado</span></div>
+  <div id="acts"><button id="btnLive" class="ob" aria-label="Transmitir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><span id="liveTxt">TRANSMITIR</span></button><button id="btnRec" class="ob" aria-label="Gravar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg><span id="recTxt">GRAVAR</span></button><button id="btnSet" class="hb" aria-label="Ajustes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11M21 18h-1"/><circle cx="16" cy="6" r="2.5"/><circle cx="10" cy="12" r="2.5"/><circle cx="18" cy="18" r="2.5"/></svg></button></div>
+</div>
+
+<div id="deckWrap">
+  <div id="prev">
+    <div id="pv_prev" class="pv g"><img class="noimg" alt=""><span class="pvt">PREVIEW</span><span class="pvn"></span></div>
+    <div id="pv_prog" class="pv"><img class="noimg" alt=""><span class="pvt">NO AR</span><span class="pvn"></span></div>
+    <button id="pvMin" aria-label="Recolher preview">&#9650;</button>
+    <button id="pvShow"></button>
+  </div>
+  <div id="deck"></div>
+  <div id="mixer"><div id="mxIn"></div></div>
+  <div id="empty"></div>
+  <div id="pager"><button id="pgPrev">&#9664;</button><span id="pgTxt"></span><button id="pgNext">&#9654;</button></div>
+</div>
+
+<div id="chat">
+  <div class="chhd"><span id="szBox" class="sz"><button id="szDn">A&minus;</button><button id="szUp">A+</button></span><b id="chatTitle">Chat</b><i id="minUnread"></i></div>
+  <div id="chatList"></div>
+  <div id="frameWrap"></div>
+  <button id="newBtn">&#9660; Novas mensagens</button>
+</div>
+<div id="splitBar" title="Arraste para redimensionar; toque para recolher o chat"><i></i></div>
+
+<div id="dock">
+  <button id="tab_all"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Tudo</span></button>
+  <button id="tab_scenes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Cenas</span></button>
+  <button id="tab_audio"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg><span>Áudio</span></button>
+  <button id="tab_actions"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span>Ações</span></button>
+  <button id="tabChat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 4h16v12H9l-5 4z"/></svg><span>Chat</span><i id="unread" class="badge"></i></button>
+</div>
+
+<div id="vol" class="modal"><div class="box">
+  <div id="vName">Fonte</div>
+  <div id="vDb">0.0 dB</div>
+  <div class="vrow"><button id="vDn" class="btn">&minus;</button><div class="rng"><input id="vSl" type="range" min="0" max="1000" step="1" value="0"></div><button id="vUp" class="btn">+</button></div>
+  <div class="row"><button id="vMute" class="btn">Mutar</button><button id="vHide" class="btn">Ocultar do deck</button><button id="vClose" class="btn pri">OK</button></div>
+</div></div>
+
+<div id="set" class="modal"><div class="box">
+  <h3>Conexão com o OBS</h3>
+  <div id="sMsg" class="warn"></div>
+  <div id="sHttps" class="warn">Esta página está aberta em HTTPS. O navegador bloqueia a conexão <b>ws://</b> com o OBS na rede local. Abra a página por <b>http://</b>.</div>
+  <label for="sHost">Endereço (IP) do PC com o OBS</label>
+  <input id="sHost" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="192.168.0.10">
+  <label for="sPort">Porta</label>
+  <input id="sPort" type="number" placeholder="4455">
+  <label for="sPass">Senha do servidor WebSocket</label>
+  <input id="sPass" type="password" placeholder="em branco se a autenticação estiver desligada">
+  <div class="hint">No OBS 28 ou mais novo: <b>Ferramentas &rarr; Configurações do servidor WebSocket</b> &rarr; “Ativar servidor WebSocket”. “Mostrar informações de conexão” exibe IP, porta e senha.</div>
+  <label class="chk"><input id="sRemember" type="checkbox">Lembrar a senha neste aparelho</label>
+
+  <h3>Deck</h3>
+  <label for="sLayout">Tamanho da grade</label>
+  <select id="sLayout">
+    <option value="auto">Automático (ajusta à tela)</option>
+    <option value="3x2">Mini — 3 &times; 2</option>
+    <option value="5x3">Padrão — 5 &times; 3</option>
+    <option value="4x4">Quadrado — 4 &times; 4</option>
+    <option value="8x4">XL — 8 &times; 4</option>
+  </select>
+  <label class="chk"><input id="sPreview" type="checkbox">Mostrar o preview da cena no topo das teclas</label>
+  <label for="sPrevInt">Atualizar o preview a cada</label>
+  <select id="sPrevInt">
+    <option value="1000">1 segundo</option>
+    <option value="2000">2 segundos</option>
+    <option value="3000">3 segundos (aparelhos lentos)</option>
+  </select>
+  <div class="hint">São capturas de tela do OBS (não é vídeo), só para conferir a cena. Quando a cena muda, o preview é atualizado na hora. No modo estúdio aparecem o Preview e o Programa lado a lado.</div>
+  <label class="chk"><input id="sMeters" type="checkbox">Medidores de áudio nas teclas (desligue em aparelhos lentos)</label>
+  <label class="chk"><input id="sVibrate" type="checkbox">Vibrar ao tocar (Android)</label>
+  <label class="chk"><input id="sWake" type="checkbox">Manter a tela ligada (quando o navegador permitir)</label>
+
+  <h3>Chat</h3>
+  <label for="sChatType">Origem do chat</label>
+  <select id="sChatType">
+    <option value="none">Sem chat</option>
+    <option value="twitch">Twitch</option>
+    <option value="youtube">YouTube</option>
+    <option value="url">Outra URL (Restream, Social Stream etc.)</option>
+  </select>
+  <div id="sChatValBox">
+    <label id="sChatValLabel" for="sChatVal">Canal</label>
+    <input id="sChatVal" type="text" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div id="sChatHint" class="hint"></div>
+    <label for="sChatMode">Onde mostrar o chat no celular/tablet</label>
+    <select id="sChatMode">
+      <option value="split">Junto com as teclas (abaixo; ao lado com a tela deitada)</option>
+      <option value="tab">Em uma aba separada</option>
+    </select>
+    <div class="hint">No modo “junto”, arraste a barra entre as teclas e o chat para mudar o tamanho, e toque nela para recolher o chat. Em telas com 1000 px ou mais o chat fica sempre numa coluna à direita.</div>
+  </div>
+
+  <div class="row"><button id="btnSave" class="btn pri">Salvar e conectar</button><button id="btnCancel" class="btn">Fechar</button></div>
+  <div class="row"><button id="btnFull" class="btn">Tela cheia</button><button id="btnUnhide" class="btn">Mostrar fontes ocultas</button></div>
+</div></div>
+
+<div id="toast"></div>
+
+<script>
+/* FM-Stream Deck (Free Mobile Stream Deck) — ES5 puro, sem dependências. Requer OBS 28+ (obs-websocket v5).
+   https://github.com/yurihoraguti/FM-Stream-Deck — licença MIT */
+(function () {
+  'use strict';
+  var d = document, w = window;
+  var MAXMSG = 200;
+
+  /* ---------- utilitários ---------- */
+  function $(id) { return d.getElementById(id); }
+  function hasC(el, c) { return (' ' + el.className + ' ').indexOf(' ' + c + ' ') > -1; }
+  function addC(el, c) { if (!hasC(el, c)) el.className = trim(el.className + ' ' + c); }
+  function remC(el, c) { el.className = trim((' ' + el.className + ' ').split(' ' + c + ' ').join(' ')); }
+  function setC(el, c, on) { if (on) addC(el, c); else remC(el, c); }
+  function trim(s) { return String(s == null ? '' : s).replace(/^\s+|\s+$/g, ''); }
+  function now() { return new Date().getTime(); }
+  var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ESC[c]; }); }
+  function store(k, v) {
+    try {
+      if (arguments.length < 2) return w.localStorage.getItem(k);
+      w.localStorage.setItem(k, v);
+    } catch (e) { return null; }
+    return null;
+  }
+  function toast(msg) {
+    var t = $('toast');
+    t.innerHTML = esc(msg);
+    t.style.display = 'block';
+    clearTimeout(toast.t);
+    toast.t = setTimeout(function () { t.style.display = 'none'; }, 3200);
+  }
+  function vw() { return w.innerWidth || d.documentElement.clientWidth; }
+  function buzz(ms) { if (cfg.vibrate && w.navigator.vibrate) { try { w.navigator.vibrate(ms); } catch (e) {} } }
+  function on(el, ev, fn) { el.addEventListener(ev, fn, false); }
+
+  /* ---------- SHA-256 (senha do OBS sem precisar de HTTPS) ---------- */
+  function sha256(ascii) {
+    function rr(v, a) { return (v >>> a) | (v << (32 - a)); }
+    var maxWord = Math.pow(2, 32), result = '', words = [], bitLen = ascii.length * 8;
+    var hash = [], k = [], primeCounter = 0, isComposite = {}, i, j, candidate;
+    for (candidate = 2; primeCounter < 64; candidate++) {
+      if (!isComposite[candidate]) {
+        for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+        hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
+        k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+      }
+    }
+    ascii += '\x80';
+    while (ascii.length % 64 - 56) ascii += '\x00';
+    for (i = 0; i < ascii.length; i++) {
+      j = ascii.charCodeAt(i);
+      words[i >> 2] |= j << ((3 - i) % 4) * 8;
+    }
+    words[words.length] = (bitLen / maxWord) | 0;
+    words[words.length] = bitLen;
+    for (j = 0; j < words.length;) {
+      var wd = words.slice(j, j += 16), oldHash = hash;
+      hash = hash.slice(0, 8);
+      for (i = 0; i < 64; i++) {
+        var w15 = wd[i - 15], w2 = wd[i - 2], a = hash[0], e = hash[4];
+        var t1 = hash[7] + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & hash[5]) ^ ((~e) & hash[6])) + k[i] +
+          (wd[i] = (i < 16) ? wd[i] : (wd[i - 16] + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3)) + wd[i - 7] + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
+        var t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+        hash = [(t1 + t2) | 0].concat(hash);
+        hash[4] = (hash[4] + t1) | 0;
+      }
+      for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+    for (i = 0; i < 8; i++) for (j = 3; j + 1; j--) result += String.fromCharCode((hash[i] >> (j * 8)) & 255);
+    return result;
+  }
+  function utf8(s) { return unescape(encodeURIComponent(s)); }
+  function makeAuth(pass, salt, challenge) {
+    var secret = w.btoa(sha256(utf8(pass) + salt));
+    return w.btoa(sha256(secret + challenge));
+  }
+
+  /* ---------- configurações ---------- */
+  var cfg = { host: '', port: '4455', pass: '', remember: true, meters: true, wake: true, vibrate: true,
+    layout: 'auto', chatType: 'none', chatVal: '', chatSize: 15, hidden: [], page: 'all',
+    chatMode: 'split', chatSplit: 40, chatMin: false,
+    preview: true, prevInt: 1000, prevMin: false };
+  var hadCfg = false, urlPage = '';
+  function loadCfg() {
+    var s = store('obsdeck') || store('obsctl'); // aproveita a config da versão anterior
+    if (s) {
+      try {
+        var o = JSON.parse(s);
+        for (var k in o) if (o.hasOwnProperty(k) && cfg.hasOwnProperty(k)) cfg[k] = o[k];
+        hadCfg = true;
+      } catch (e) {}
+    }
+    var q = (w.location.search.replace(/^\?/, '') + '&' + w.location.hash.replace(/^#/, '')).split('&');
+    for (var i = 0; i < q.length; i++) {
+      var kv = q[i].split('='), key = kv[0], val;
+      if (!key || kv.length < 2) continue;
+      try { val = decodeURIComponent(kv.slice(1).join('=').replace(/\+/g, ' ')); } catch (e2) { continue; }
+      if (key === 'host') { cfg.host = val; hadCfg = true; }
+      else if (key === 'port') cfg.port = val;
+      else if (key === 'pass' || key === 'pw') cfg.pass = val;
+      else if (key === 'twitch') { cfg.chatType = 'twitch'; cfg.chatVal = val; }
+      else if (key === 'youtube') { cfg.chatType = 'youtube'; cfg.chatVal = val; }
+      else if (key === 'layout') cfg.layout = val;
+      else if (key === 'chatmode' && (val === 'split' || val === 'tab')) cfg.chatMode = val;
+      else if (key === 'page' && /^(all|scenes|audio|actions)$/.test(val)) urlPage = val;
+    }
+    if (!cfg.host) cfg.host = w.location.hostname || 'localhost';
+    if (!(cfg.hidden instanceof Array)) cfg.hidden = [];
+  }
+  function saveCfg() {
+    var o = {};
+    for (var k in cfg) if (cfg.hasOwnProperty(k)) o[k] = cfg[k];
+    if (!cfg.remember) o.pass = '';
+    store('obsdeck', JSON.stringify(o));
+  }
+  function isHidden(name) {
+    for (var i = 0; i < cfg.hidden.length; i++) if (cfg.hidden[i] === name) return true;
+    return false;
+  }
+
+  /* ---------- conexão com o OBS (obs-websocket v5) ---------- */
+  var ws = null, connected = false, wantConnect = false, retryTimer = null, reqId = 0, pending = {};
+
+  function setStatus(state, txt) { $('dot').className = state; $('stTxt').innerHTML = esc(txt); }
+  function send(o) { try { ws.send(JSON.stringify(o)); } catch (e) {} }
+  function request(type, data, cb) {
+    if (!ws || !connected) { if (cb) cb(false, {}, { comment: 'não conectado' }); return; }
+    var id = 'r' + (++reqId);
+    if (cb) pending[id] = cb;
+    send({ op: 6, d: { requestType: type, requestId: id, requestData: data || {} } });
+  }
+  function act(type, data, okMsg) {
+    if (!connected) { toast('Não conectado ao OBS'); return; }
+    request(type, data, function (ok, r, rs) {
+      if (!ok) toast('OBS: ' + (rs.comment || ('falha em ' + type)));
+      else if (okMsg) toast(okMsg);
+    });
+  }
+  function scheduleRetry() {
+    if (!wantConnect) return;
+    clearTimeout(retryTimer);
+    setStatus('off', 'Sem conexão — tentando de novo…');
+    retryTimer = setTimeout(connect, 3000);
+  }
+  function connect() {
+    clearTimeout(retryTimer);
+    if (ws) {
+      var old = ws; ws = null;
+      old.onclose = null; old.onmessage = null;
+      try { old.close(); } catch (e) {}
+    }
+    connected = false; wantConnect = true; pending = {};
+    addC(d.body, 'off');
+    if (!('WebSocket' in w)) { setStatus('off', 'Navegador sem WebSocket'); return; }
+    setStatus('conn', 'Conectando a ' + cfg.host + '…');
+    var sock;
+    try { sock = new WebSocket('ws://' + cfg.host + ':' + cfg.port); }
+    catch (e) { setStatus('off', 'Conexão bloqueada'); if (w.location.protocol === 'https:') openSettings(); return; }
+    ws = sock;
+    sock.onmessage = function (ev) {
+      if (ws !== sock) return;
+      var m;
+      try { m = JSON.parse(ev.data); } catch (e) { return; }
+      onObs(m);
+    };
+    sock.onclose = function (ev) {
+      if (ws !== sock) return;
+      ws = null; connected = false;
+      addC(d.body, 'off');
+      renderDeck();
+      if (ev.code === 4009) { wantConnect = false; setStatus('off', 'Senha incorreta'); openSettings('A senha do OBS está incorreta.'); return; }
+      if (ev.code === 4010) { wantConnect = false; setStatus('off', 'OBS incompatível'); openSettings('Este OBS usa outra versão do WebSocket. Atualize para o OBS 28 ou mais novo.'); return; }
+      if (wantConnect) scheduleRetry();
+    };
+    sock.onerror = function () {};
+  }
+  function onObs(m) {
+    var op = m.op, dd = m.d || {};
+    if (op === 0) {
+      var ident = { rpcVersion: 1, eventSubscriptions: cfg.meters ? (2047 | 65536) : 2047 };
+      if (dd.authentication) {
+        if (!cfg.pass) {
+          wantConnect = false;
+          setStatus('off', 'O OBS pede senha');
+          try { ws.close(); } catch (e) {}
+          openSettings('O OBS está pedindo senha. Informe a senha do servidor WebSocket.');
+          return;
+        }
+        ident.authentication = makeAuth(cfg.pass, dd.authentication.salt, dd.authentication.challenge);
+      }
+      send({ op: 1, d: ident });
+    } else if (op === 2) {
+      connected = true;
+      remC(d.body, 'off');
+      setStatus('on', 'OBS conectado');
+      loadAll();
+      keepAwake();
+    } else if (op === 5) {
+      onEvent(dd.eventType, dd.eventData || {});
+    } else if (op === 7) {
+      var cb = pending[dd.requestId];
+      delete pending[dd.requestId];
+      if (cb) { var rs = dd.requestStatus || {}; cb(!!rs.result, dd.responseData || {}, rs); }
+    }
+  }
+  function loadAll() {
+    request('GetStudioModeEnabled', {}, function (ok, r) { studio = ok && !!r.studioModeEnabled; loadScenes(); });
+    loadInputs();
+    loadOutputs();
+    loadVideo();
+    startPrev();
+  }
+  function onEvent(t, e) {
+    switch (t) {
+      case 'CurrentProgramSceneChanged': program = e.sceneName; renderDeck(); prevKick('prog'); break;
+      case 'CurrentPreviewSceneChanged': preview = e.sceneName; renderDeck(); prevKick('prev'); break;
+      case 'SceneListChanged': case 'SceneCreated': case 'SceneRemoved': case 'SceneNameChanged': loadScenesSoon(); break;
+      case 'StudioModeStateChanged': studio = !!e.studioModeEnabled; loadScenes(); break;
+      case 'InputVolumeChanged': onVolume(e.inputName, e.inputVolumeMul); break;
+      case 'InputMuteStateChanged': onMute(e.inputName, e.inputMuted); break;
+      case 'InputAudioMonitorTypeChanged': if (chans[e.inputName]) { chans[e.inputName].mon = e.monitorType; updStrip(chans[e.inputName]); } break;
+      case 'InputCreated': case 'InputRemoved': case 'InputNameChanged': loadInputsSoon(); break;
+      case 'InputVolumeMeters': onMeters(e.inputs || []); break;
+      case 'StreamStateChanged': streaming = !!e.outputActive; updOut(); break;
+      case 'RecordStateChanged':
+        if (e.outputState === 'OBS_WEBSOCKET_OUTPUT_PAUSED') { recPaused = true; recording = true; }
+        else if (e.outputState === 'OBS_WEBSOCKET_OUTPUT_RESUMED') { recPaused = false; recording = true; }
+        else { recording = !!e.outputActive; if (!recording) recPaused = false; }
+        updOut(); break;
+      case 'ReplayBufferStateChanged': replayOn = !!e.outputActive; updOut(); break;
+      case 'ReplayBufferSaved': toast('Replay salvo'); break;
+      case 'VirtualcamStateChanged': vcamOn = !!e.outputActive; updOut(); break;
+      case 'ExitStarted': setStatus('off', 'OBS foi fechado'); break;
+    }
+  }
+
+  /* ---------- estado ---------- */
+  var scenes = [], program = '', preview = '', studio = false, scenesTimer = null;
+  var chans = {}, chanOrder = [], inputsTimer = null, meterFrame = 0, chanGen = 0;
+  var MON_NONE = 'OBS_MONITORING_TYPE_NONE', MON_ONLY = 'OBS_MONITORING_TYPE_MONITOR_ONLY', MON_BOTH = 'OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT';
+  var streaming = false, recording = false, recPaused = false, replayOn = false, vcamOn = false;
+
+  function loadScenesSoon() { clearTimeout(scenesTimer); scenesTimer = setTimeout(loadScenes, 250); }
+  function loadScenes() {
+    request('GetSceneList', {}, function (ok, r) {
+      if (!ok) return;
+      scenes = (r.scenes || []).slice().reverse();
+      program = r.currentProgramSceneName || '';
+      preview = r.currentPreviewSceneName || '';
+      renderDeck();
+      prevKick('prog');
+      if (studio) prevKick('prev');
+    });
+  }
+  function loadInputsSoon() { clearTimeout(inputsTimer); inputsTimer = setTimeout(loadInputs, 300); }
+  function loadInputs() {
+    request('GetInputList', {}, function (ok, r) {
+      if (!ok) return;
+      var list = r.inputs || [], res = [], left = list.length;
+      if (!left) { buildChans([]); return; }
+      function done() {
+        if (--left === 0) {
+          var arr = [];
+          for (var k = 0; k < res.length; k++) if (res[k]) arr.push(res[k]);
+          buildChans(arr);
+        }
+      }
+      for (var i = 0; i < list.length; i++) {
+        (function (idx, name) {
+          request('GetInputVolume', { inputName: name }, function (ok1, v) {
+            if (!ok1) { done(); return; }
+            request('GetInputMute', { inputName: name }, function (ok2, mm) {
+              request('GetInputAudioMonitorType', { inputName: name }, function (ok3, mt) {
+                res[idx] = { name: name, mul: v.inputVolumeMul, muted: ok2 ? !!mm.inputMuted : false,
+                  mon: ok3 && mt.monitorType ? mt.monitorType : MON_NONE };
+                done();
+              });
+            });
+          });
+        })(i, list[i].inputName);
+      }
+    });
+  }
+  function buildChans(arr) {
+    var old = chans;
+    chans = {}; chanOrder = []; chanGen++;
+    for (var i = 0; i < arr.length; i++) {
+      var c = { name: arr[i].name, mul: arr[i].mul, muted: arr[i].muted, mon: arr[i].mon || MON_NONE, dragging: false, lastSend: 0, sendT: null, dragT: null, seen: 0, ui: null, mx: null };
+      if (old[c.name]) c.lastSend = old[c.name].lastSend;
+      chans[c.name] = c; chanOrder.push(c.name);
+    }
+    renderDeck();
+    if (arr.length && !store('obsdeck_tip')) { store('obsdeck_tip', '1'); setTimeout(function () { toast('Dica: toque numa fonte de áudio para mutar e segure para ajustar o volume.'); }, 600); }
+  }
+  function loadOutputs() {
+    request('GetStreamStatus', {}, function (ok, r) { if (ok) { streaming = !!r.outputActive; updOut(); } });
+    request('GetRecordStatus', {}, function (ok, r) { if (ok) { recording = !!r.outputActive; recPaused = !!r.outputPaused; updOut(); } });
+    request('GetReplayBufferStatus', {}, function (ok, r) { replayOn = ok && !!r.outputActive; updOut(); });
+    request('GetVirtualCamStatus', {}, function (ok, r) { vcamOn = ok && !!r.outputActive; updOut(); });
+  }
+  function updOut() {
+    var narrow = vw() < 520;
+    setC($('btnLive'), 'on', streaming);
+    $('liveTxt').innerHTML = streaming ? 'NO AR' : (narrow ? 'LIVE' : 'TRANSMITIR');
+    setC($('btnRec'), 'on', recording && !recPaused);
+    setC($('btnRec'), 'paused', recording && recPaused);
+    $('recTxt').innerHTML = recording ? (recPaused ? 'PAUSADO' : 'REC') : (narrow ? 'REC' : 'GRAVAR');
+    renderDeck();
+  }
+
+  /* ---------- volume ---------- */
+  function pos2mul(p) { p = p / 1000; return p * p * p; }
+  function mul2pos(m) { if (!(m > 0)) return 0; if (m >= 1) return 1000; return Math.round(Math.pow(m, 1 / 3) * 1000); }
+  function mul2db(m) { return m > 0 ? 20 * Math.log(m) / Math.LN10 : -Infinity; }
+  function fmtDb(m, short) {
+    if (!(m > 0.000001)) return '-&infin;' + (short ? '' : ' dB');
+    var db = mul2db(m);
+    return (db > 0.05 ? '+' : '') + db.toFixed(short ? 0 : 1) + (short ? '' : ' dB');
+  }
+  function queueVol(ch) {
+    clearTimeout(ch.sendT);
+    if (now() - ch.lastSend >= 70) sendVol(ch);
+    else ch.sendT = setTimeout(function () { sendVol(ch); }, 70);
+  }
+  function sendVol(ch) { ch.lastSend = now(); request('SetInputVolume', { inputName: ch.name, inputVolumeMul: ch.mul }); }
+  function onVolume(name, mul) {
+    var ch = chans[name];
+    if (!ch || ch.dragging) return;
+    ch.mul = mul; updAudioKey(ch); if (volCh === ch) updVol();
+  }
+  function onMute(name, muted) {
+    var ch = chans[name];
+    if (!ch) return;
+    ch.muted = !!muted; updAudioKey(ch); if (volCh === ch) updVol();
+  }
+  function onMeters(list) {
+    meterFrame++;
+    var i, ch;
+    for (i = 0; i < list.length; i++) {
+      var it = list[i];
+      ch = chans[it.inputName];
+      if (!ch) continue;
+      ch.seen = meterFrame;
+      if (!ch.ui && !ch.mx) continue;
+      var lv = it.inputLevelsMul || [], pk = 0;
+      for (var j = 0; j < lv.length; j++) if (lv[j] && lv[j][1] > pk) pk = lv[j][1];
+      if (ch.ui) ch.ui.mask.style.width = (100 - meterPct(pk)) + '%';
+      if (ch.mx) { // mesa: dois medidores (L/R); fonte mono usa o mesmo nos dois
+        var l = lv[0] ? lv[0][1] : 0, r = lv[1] ? lv[1][1] : l;
+        ch.mx.masks[0].style.height = (100 - meterPct(l)) + '%';
+        ch.mx.masks[1].style.height = (100 - meterPct(r)) + '%';
+      }
+    }
+    for (i = 0; i < chanOrder.length; i++) {
+      ch = chans[chanOrder[i]];
+      if (!ch || ch.seen === meterFrame) continue;
+      if (ch.ui) ch.ui.mask.style.width = '100%';
+      if (ch.mx) ch.mx.masks[0].style.height = ch.mx.masks[1].style.height = '100%';
+    }
+  }
+  function meterPct(pk) {
+    if (!(pk > 0)) return 0;
+    var pct = (mul2db(pk) + 60) / 60 * 100;
+    return pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+  }
+
+  /* ---------- ícones ---------- */
+  var IC = {
+    scene: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    spk: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>',
+    spkOff: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6"/>',
+    slash: '<path d="M3 3l18 18"/>',
+    live: '<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
+    rec: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4" fill="currentColor"/>',
+    pause: '<path d="M9 5v14M15 5v14"/>',
+    play: '<path d="M7 5l12 7-12 7z"/>',
+    studio: '<rect x="2" y="6" width="9" height="8" rx="1"/><rect x="13" y="6" width="9" height="8" rx="1"/><path d="M6 18h12"/>',
+    trans: '<path d="M4 12h14M13 6l6 6-6 6"/>',
+    replay: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+    vcam: '<rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 10l6-3v10l-6-3z"/>'
+  };
+  function svg(name, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + IC[name] + '</svg>';
+  }
+  function isMic(n) { return /mic|microfone|voz|voice|headset|fone|rode|shure|blue yeti|aux/i.test(n); }
+  function hue(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+
+  /* ---------- teclas ---------- */
+  function sceneKeys() {
+    var out = [];
+    for (var i = 0; i < scenes.length; i++) {
+      out.push({ type: 'scene', name: scenes[i].sceneName });
+    }
+    return out;
+  }
+  function audioKeys() {
+    var out = [];
+    for (var i = 0; i < chanOrder.length; i++) if (!isHidden(chanOrder[i])) out.push({ type: 'audio', name: chanOrder[i] });
+    return out;
+  }
+  function actionKeys() {
+    var out = [];
+    // transmitir e gravar ficam no topo (btnLive / btnRec), não como teclas
+    if (recording) out.push({ type: 'act', id: 'pause', icon: recPaused ? 'play' : 'pause', label: recPaused ? 'RETOMAR' : 'PAUSAR REC', on: recPaused ? 'on-amber' : '' });
+    out.push({ type: 'act', id: 'studio', icon: 'studio', label: 'MODO ESTÚDIO', on: studio ? 'on-green' : '' });
+    if (studio) out.push({ type: 'act', id: 'trans', icon: 'trans', label: 'TRANSIÇÃO', on: 'on-blue' });
+    out.push({ type: 'act', id: 'replay', icon: 'replay', label: replayOn ? 'SALVAR REPLAY' : 'REPLAY', on: replayOn ? 'on-green' : '' });
+    out.push({ type: 'act', id: 'vcam', icon: 'vcam', label: 'CÂM. VIRTUAL', on: vcamOn ? 'on-green' : '' });
+    return out;
+  }
+  function pageKeys(p) {
+    if (p === 'scenes') return sceneKeys();
+    if (p === 'audio') return audioKeys();
+    if (p === 'actions') return actionKeys();
+    var a = sceneKeys();
+    if (studio) a.push({ type: 'act', id: 'trans', icon: 'trans', label: 'TRANSIÇÃO', on: 'on-blue' });
+    return a.concat(audioKeys());
+  }
+  function doAction(id, held) {
+    if (id === 'live') {
+      if (w.confirm(streaming ? 'Encerrar a transmissão?' : 'Iniciar a transmissão?')) act(streaming ? 'StopStream' : 'StartStream');
+    } else if (id === 'rec') {
+      if (!recording) act('StartRecord');
+      else if (w.confirm('Parar a gravação?')) act('StopRecord');
+    } else if (id === 'pause') {
+      act(recPaused ? 'ResumeRecord' : 'PauseRecord');
+    } else if (id === 'studio') {
+      act('SetStudioModeEnabled', { studioModeEnabled: !studio });
+    } else if (id === 'trans') {
+      act('TriggerStudioModeTransition');
+    } else if (id === 'replay') {
+      if (held) { if (replayOn && w.confirm('Desligar o buffer de replay?')) act('StopReplayBuffer'); }
+      else if (replayOn) act('SaveReplayBuffer');
+      else act('StartReplayBuffer', {}, 'Buffer de replay ligado — toque de novo para salvar');
+    } else if (id === 'vcam') {
+      act('ToggleVirtualCam');
+    }
+  }
+
+  /* toque e “segurar” iguais em toque e mouse */
+  var lastTouch = 0;
+  function bindKey(el, tap, hold) {
+    var timer = null, fired = false, sx = 0, sy = 0, active = false;
+    function start(x, y) {
+      active = true; fired = false; sx = x; sy = y; addC(el, 'down');
+      if (hold) timer = setTimeout(function () { fired = true; remC(el, 'down'); buzz(30); hold(); }, 450);
+    }
+    function end() { if (!active) return; active = false; clearTimeout(timer); remC(el, 'down'); if (!fired) { buzz(12); tap(); } }
+    function cancel() { active = false; clearTimeout(timer); remC(el, 'down'); }
+    on(el, 'touchstart', function (e) { lastTouch = now(); var t = e.touches[0]; start(t.clientX, t.clientY); });
+    on(el, 'touchmove', function (e) { var t = e.touches[0]; if (Math.abs(t.clientX - sx) > 12 || Math.abs(t.clientY - sy) > 12) cancel(); });
+    on(el, 'touchend', function (e) { lastTouch = now(); if (active) { e.preventDefault(); end(); } });
+    on(el, 'touchcancel', cancel);
+    on(el, 'mousedown', function (e) { if (now() - lastTouch < 800 || e.button !== 0) return; start(e.clientX, e.clientY); });
+    on(el, 'mouseup', function () { if (now() - lastTouch < 800) return; end(); });
+    on(el, 'mouseleave', function () { if (now() - lastTouch < 800) return; cancel(); });
+    on(el, 'contextmenu', function (e) { e.preventDefault(); if (hold && now() - lastTouch > 800) { cancel(); hold(); } });
+  }
+
+  function makeKey(k, size) {
+    var el = d.createElement('div'), ic = Math.round(size * 0.36), html = '';
+    el.className = 'key';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.fontSize = Math.max(10, Math.round(size * 0.105)) + 'px';
+    el.style.borderRadius = Math.round(size * 0.14) + 'px';
+    if (k.type === 'scene') {
+      var h = hue(k.name), isLive = k.name === program, isPrev = studio && k.name === preview && !isLive;
+      el.className += ' k-scene' + (isLive ? ' live' : '') + (isPrev ? ' prev' : '');
+      el.style.backgroundColor = 'hsl(' + h + ',35%,20%)';
+      el.style.backgroundImage = '-webkit-linear-gradient(top,hsl(' + h + ',40%,28%),hsl(' + h + ',35%,13%))';
+      el.style.backgroundImage = 'linear-gradient(hsl(' + h + ',40%,28%),hsl(' + h + ',35%,13%))';
+      if (isLive) html += '<span class="kt">NO AR</span>';
+      else if (isPrev) html += '<span class="kt g">PREVIEW</span>';
+      html += '<span class="ki">' + svg('scene', ic) + '</span><span class="kl">' + esc(k.name) + '</span>';
+      el.innerHTML = html;
+      bindKey(el, function () {
+        if (studio) act('SetCurrentPreviewScene', { sceneName: k.name });
+        else act('SetCurrentProgramScene', { sceneName: k.name });
+      }, null);
+    } else if (k.type === 'audio') {
+      var ch = chans[k.name];
+      el.className += ' k-audio';
+      el.innerHTML = '<span class="kt" style="display:none">MUDO</span><span class="kdb"></span><span class="ki"></span><span class="kl">' + esc(k.name) +
+        '</span><span class="km"><span class="kmm"></span></span>';
+      var sp = el.getElementsByTagName('span');
+      ch.ui = { el: el, tag: sp[0], db: sp[1], icon: sp[2], mask: sp[5], ic: Math.round(size * 0.3), mic: isMic(k.name) };
+      updAudioKey(ch);
+      bindKey(el, function () { act('SetInputMute', { inputName: ch.name, inputMuted: !ch.muted }); },
+        function () { openVol(ch.name); });
+    } else {
+      el.className += ' k-act' + (k.on ? ' ' + k.on : '');
+      el.innerHTML = '<span class="ki">' + svg(k.icon, ic) + '</span><span class="kl">' + esc(k.label) + '</span>';
+      bindKey(el, function () { doAction(k.id, false); }, k.id === 'replay' ? function () { doAction('replay', true); } : null);
+    }
+    return el;
+  }
+  function updAudioKey(ch) {
+    updStrip(ch);
+    var u = ch.ui;
+    if (!u || !u.el.parentNode) return;
+    setC(u.el, 'muted', ch.muted);
+    u.tag.style.display = ch.muted ? 'block' : 'none';
+    u.db.innerHTML = ch.muted ? '' : fmtDb(ch.mul, true);
+    u.icon.innerHTML = svg(u.mic ? 'mic' : (ch.muted ? 'spkOff' : 'spk'), u.ic);
+    if (u.mic && ch.muted) u.icon.innerHTML = '<svg width="' + u.ic + '" height="' + u.ic + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + IC.mic + IC.slash + '</svg>';
+  }
+
+  /* ---------- preview da cena (GetSourceScreenshot) ---------- */
+  // prog = cena no ar (Programa); prev = cena de Preview do modo estúdio
+  var pv = { aspect: 16 / 9, w: 0, timer: null, busy: { prog: 0, prev: 0 }, kickT: { prog: null, prev: null } };
+  function prevOn() { return !!cfg.preview && connected && page !== 'audio'; } // na página Áudio o preview some e não captura
+  function pvScene(role) { return role === 'prev' ? preview : program; }
+  function prevLayout(W, H) {
+    var box = $('prev');
+    if (!prevOn()) { box.style.display = 'none'; return 0; }
+    box.style.display = 'block';
+    setC(box, 'pvmin', !!cfg.prevMin);
+    if (cfg.prevMin) {
+      $('pvShow').innerHTML = '&#9660; Preview' + (program ? ' &middot; ' + esc(studio && preview ? preview + ' → ' + program : program) : '');
+      box.style.height = '38px';
+      return 38;
+    }
+    var gap = W < 500 ? 8 : 12, two = studio, bw, bh, total, ox, top, iw, maxH;
+    // celular em pé: preview com 100% da largura da tela, de ponta a ponta
+    var full = vw() < 1000 && vh() > vw();
+    setC(box, 'pvfull', full);
+    if (full) {
+      var mid = two ? 2 : 0;
+      bw = two ? Math.floor((W - mid) / 2) : W;
+      bh = Math.round(bw / pv.aspect);
+      maxH = Math.round(H * 0.6);
+      if (bh > maxH) bh = maxH; // altura limitada: a caixa continua com 100% da largura e a imagem fica centralizada
+      iw = Math.min(bw, Math.round(bh * pv.aspect));
+      total = two ? bw * 2 + mid : bw; ox = 0; top = 0; gap = mid;
+    } else {
+      bw = two ? Math.floor((W - gap * 3) / 2) : W - gap * 2;
+      maxH = Math.max(60, Math.round(H * (two ? 0.3 : 0.34)));
+      bh = Math.round(bw / pv.aspect);
+      if (bh > maxH) { bh = maxH; bw = Math.round(bh * pv.aspect); }
+      iw = bw;
+      total = two ? bw * 2 + gap : bw; ox = Math.floor((W - total) / 2); top = gap;
+    }
+    var pP = $('pv_prev'), pG = $('pv_prog');
+    var imP = pP.getElementsByTagName('img')[0], imG = pG.getElementsByTagName('img')[0];
+    imP.style.width = imG.style.width = iw + 'px';
+    imP.style.left = imG.style.left = Math.floor((bw - iw) / 2) + 'px';
+    pP.style.display = two ? 'block' : 'none';
+    pG.style.display = 'block';
+    pP.style.width = pG.style.width = bw + 'px';
+    pP.style.height = pG.style.height = bh + 'px';
+    pP.style.top = pG.style.top = top + 'px';
+    pP.style.left = ox + 'px';
+    pG.style.left = (two ? ox + bw + gap : ox) + 'px';
+    pP.getElementsByTagName('span')[1].innerHTML = esc(preview || '—');
+    pG.getElementsByTagName('span')[1].innerHTML = esc(program || '—');
+    var mn = $('pvMin');
+    mn.style.top = (top + 4) + 'px';
+    mn.style.left = ((two ? ox + bw + gap : ox) + bw - 34) + 'px';
+    pv.w = iw;
+    var used = top + bh + (full ? 2 : 4);
+    box.style.height = used + 'px';
+    return used;
+  }
+  function shoot(role) {
+    var scene = pvScene(role);
+    if (!scene || !prevOn() || cfg.prevMin) return;
+    if (pv.busy[role] && now() - pv.busy[role] < 4000) return; // um pedido por vez (aparelhos lentos)
+    pv.busy[role] = now();
+    var dpr = w.devicePixelRatio || 1;
+    var iw = Math.min(640, Math.max(64, Math.round((pv.w || 320) * (dpr > 2 ? 2 : dpr))));
+    request('GetSourceScreenshot', { sourceName: scene, imageFormat: 'jpg', imageWidth: iw, imageCompressionQuality: 60 }, function (ok, r) {
+      pv.busy[role] = 0;
+      if (!ok || !r.imageData || pvScene(role) !== scene) return; // resposta de uma cena antiga: descarta
+      var src = String(r.imageData);
+      if (src.indexOf('data:') !== 0) src = 'data:image/jpeg;base64,' + src;
+      var el = $('pv_' + role), img = el.getElementsByTagName('img')[0];
+      img.src = src;
+      remC(img, 'noimg');
+      remC(el, 'stale');
+    });
+  }
+  function prevTick() {
+    if (!prevOn() || cfg.prevMin || d.hidden) return;
+    shoot('prog');
+    if (studio) shoot('prev');
+  }
+  function startPrev() {
+    clearInterval(pv.timer);
+    pv.timer = setInterval(prevTick, +cfg.prevInt || 1000);
+  }
+  // a cena mudou: escurece a imagem antiga, captura na hora e de novo após a transição
+  function prevKick(role) {
+    if (!prevOn() || cfg.prevMin) return;
+    addC($('pv_' + role), 'stale');
+    pv.busy[role] = 0;
+    shoot(role);
+    clearTimeout(pv.kickT[role]);
+    pv.kickT[role] = setTimeout(function () { pv.busy[role] = 0; shoot(role); }, 700);
+    startPrev(); // reinicia o ciclo para não capturar de novo logo em seguida
+  }
+  function loadVideo() {
+    request('GetVideoSettings', {}, function (ok, r) {
+      if (ok && r.baseWidth > 0 && r.baseHeight > 0) { pv.aspect = r.baseWidth / r.baseHeight; renderDeck(); }
+    });
+  }
+
+  /* ---------- grade ---------- */
+  var page = 'all', pageIdx = 0, pageCount = 1;
+  function grid(W, H) {
+    var gap = W < 500 ? 8 : 12, cols, rows, size;
+    var m = /^(\d+)x(\d+)$/.exec(cfg.layout || '');
+    if (m) {
+      cols = +m[1]; rows = +m[2];
+      size = Math.floor(Math.min((W - gap * (cols + 1)) / cols, (H - gap * (rows + 1)) / rows));
+    } else {
+      var target = W < 500 ? 100 : (W < 900 ? 120 : 132);
+      cols = Math.max(3, Math.floor((W - gap) / (target + gap)));
+      size = Math.floor((W - gap * (cols + 1)) / cols);
+      if (size > 170) size = 170;
+      rows = Math.floor((H - gap) / (size + gap));
+      if (rows < 2) { rows = 2; size = Math.floor((H - gap * 3) / 2); }
+    }
+    if (size < 40) size = 40;
+    // no automático, se as teclas encolheram pela altura, cabe mais colunas
+    if (!m) cols = Math.max(3, Math.floor((W - gap) / (size + gap)));
+    // largura das teclas: a grade ocupa 100% da largura (teclas podem ficar mais largas que altas)
+    var kw = Math.floor((W - gap * (cols + 1)) / cols);
+    if (kw < size) size = kw;
+    if (size < 40) size = 40;
+    if (kw < size) kw = size;
+    return { cols: cols, rows: rows, size: size, kw: kw, gap: gap };
+  }
+  function renderDeck() {
+    var wrap = $('deckWrap'), deck = $('deck'), W = wrap.clientWidth, H = wrap.clientHeight;
+    if (!W || !H) return;
+    var ph = prevLayout(W, H);
+    deck.style.top = ph + 'px';
+    H -= ph;
+    for (var n in chans) if (chans.hasOwnProperty(n)) chans[n].ui = null;
+    var mix = page === 'audio';
+    setC(d.body, 'mixon', mix);
+    if (mix) {
+      deck.innerHTML = '';
+      $('pager').style.display = 'none';
+      pageCount = 1; pageIdx = 0;
+      renderMixer(W, H);
+      var emA = $('empty'), nA = audioKeys().length;
+      if (!nA) {
+        emA.innerHTML = !connected ? 'Sem conexão com o OBS.<br><button class="btn pri" id="emSet">Abrir ajustes</button>' :
+          'Nenhuma fonte de áudio' + (cfg.hidden.length ? ' visível (há fontes ocultas, veja em Ajustes)' : '') + '.';
+        emA.style.display = 'block';
+        if ($('emSet')) $('emSet').onclick = function () { openSettings(); };
+      } else emA.style.display = 'none';
+      return;
+    }
+    if (mixSig) clearMixer();
+    var keys = pageKeys(page), g = grid(W, H), per = g.cols * g.rows;
+    pageCount = Math.max(1, Math.ceil(keys.length / per));
+    if (pageCount > 1) { H -= 34; g = grid(W, H); per = g.cols * g.rows; pageCount = Math.max(1, Math.ceil(keys.length / per)); }
+    if (pageIdx >= pageCount) pageIdx = pageCount - 1;
+    if (pageIdx < 0) pageIdx = 0;
+    $('pager').style.display = pageCount > 1 ? 'block' : 'none';
+    $('pgTxt').innerHTML = (pageIdx + 1) + ' / ' + pageCount;
+
+    deck.innerHTML = '';
+    var slice = keys.slice(pageIdx * per, pageIdx * per + per);
+    var usedRows = Math.min(g.rows, Math.ceil(slice.length / g.cols)) || 1;
+    var gw = g.cols * g.kw + (g.cols - 1) * g.gap;
+    var gh = (pageCount > 1 ? g.rows : usedRows) * g.size + ((pageCount > 1 ? g.rows : usedRows) - 1) * g.gap;
+    var ox = Math.floor((W - gw) / 2), oy = Math.max(g.gap, Math.floor((H - gh) / 2));
+    if (cfg.layout === 'auto' && pageCount === 1) oy = g.gap + 4; // no automático, começa do topo como um deck
+    for (var i = 0; i < slice.length; i++) {
+      var el = makeKey(slice[i], g.size), c = i % g.cols, r = Math.floor(i / g.cols);
+      el.style.width = g.kw + 'px';
+      el.style.left = (ox + c * (g.kw + g.gap)) + 'px';
+      el.style.top = (oy + r * (g.size + g.gap)) + 'px';
+      deck.appendChild(el);
+      if (slice[i].type === 'audio') updAudioKey(chans[slice[i].name]);
+    }
+    var em = $('empty');
+    if (!connected && !keys.length) {
+      em.innerHTML = 'Sem conexão com o OBS.<br><button class="btn pri" id="emSet">Abrir ajustes</button>';
+      em.style.display = 'block';
+      $('emSet').onclick = function () { openSettings(); };
+    } else if (!keys.length) {
+      em.innerHTML = page === 'audio' ? 'Nenhuma fonte de áudio' + (cfg.hidden.length ? ' visível (há fontes ocultas, veja em Ajustes)' : '') + '.' : 'Nada por aqui ainda.';
+      em.style.display = 'block';
+    } else em.style.display = 'none';
+  }
+  function setPage(p) {
+    if (p === 'chat') { toggleChat(true); return; }
+    toggleChat(false);
+    page = p; pageIdx = 0; cfg.page = p; store('obsdeck_page', p);
+    var tabs = ['all', 'scenes', 'audio', 'actions'];
+    for (var i = 0; i < tabs.length; i++) setC($('tab_' + tabs[i]), 'act', tabs[i] === p);
+    renderDeck();
+    if (p !== 'audio' && prevOn() && !cfg.prevMin) { // voltando da mesa: preview atualiza na hora
+      addC($('pv_prog'), 'stale'); addC($('pv_prev'), 'stale');
+      pv.busy.prog = pv.busy.prev = 0; prevTick();
+    }
+  }
+  function goPage(delta) {
+    var n = pageIdx + delta;
+    if (n < 0 || n >= pageCount) return;
+    pageIdx = n; buzz(8); renderDeck();
+  }
+
+  /* ---------- janela de volume ---------- */
+  var volCh = null;
+  function openVol(name) {
+    volCh = chans[name];
+    if (!volCh) return;
+    $('vName').innerHTML = esc(name);
+    updVol();
+    $('vol').style.display = 'block';
+  }
+  function closeVol() { $('vol').style.display = 'none'; volCh = null; }
+  function updVol() {
+    if (!volCh) return;
+    $('vDb').innerHTML = fmtDb(volCh.mul);
+    if (!volCh.dragging) $('vSl').value = mul2pos(volCh.mul);
+    $('vMute').innerHTML = volCh.muted ? 'Desmutar' : 'Mutar';
+    setC($('vMute'), 'on', volCh.muted);
+  }
+  function volMove() {
+    var ch = volCh;
+    if (!ch) return;
+    ch.dragging = true;
+    clearTimeout(ch.dragT);
+    ch.dragT = setTimeout(function () { ch.dragging = false; }, 800);
+    ch.mul = pos2mul(+$('vSl').value);
+    $('vDb').innerHTML = fmtDb(ch.mul);
+    updAudioKey(ch);
+    queueVol(ch);
+  }
+  function stepDb(ch, step) {
+    var db = mul2db(ch.mul);
+    if (db < -60) db = step > 0 ? -60 - step : -60;
+    db += step;
+    if (db < -60) ch.mul = 0;
+    else { ch.mul = Math.pow(10, db / 20); if (ch.mul > 1) ch.mul = 1; }
+    updAudioKey(ch); if (volCh === ch) updVol();
+    queueVol(ch);
+  }
+  function volStep(step) {
+    if (!volCh) return;
+    buzz(8); stepDb(volCh, step);
+  }
+
+  /* ---------- mesa de som (página Áudio) ---------- */
+  var mixSig = '', fdr = null; // fdr = fader sendo arrastado com o mouse
+  function mk(tag, cls, parent) { var e = d.createElement(tag); if (cls) e.className = cls; parent.appendChild(e); return e; }
+  function clearMixer() {
+    mixSig = '';
+    $('mxIn').innerHTML = '';
+    for (var n in chans) if (chans.hasOwnProperty(n)) chans[n].mx = null;
+  }
+  function renderMixer(W, H) {
+    var list = audioKeys(), n = list.length, i;
+    var sw = n ? Math.max(78, Math.floor(W / n)) : W; // canais preenchem a largura; se não couberem, rola de lado
+    var sig = chanGen + '|' + n + '|' + sw + 'x' + H + '|' + W;
+    for (i = 0; i < n; i++) sig += '|' + list[i].name;
+    if (sig === mixSig) { for (i = 0; i < n; i++) updStrip(chans[list[i].name]); return; }
+    clearMixer();
+    mixSig = sig;
+    var box = $('mxIn');
+    box.style.width = (n * sw > W ? n * sw : W) + 'px';
+    for (i = 0; i < n; i++) {
+      var w0 = (i === n - 1 && n * sw <= W) ? W - sw * (n - 1) : sw; // último canal fecha os 100%
+      makeStrip(chans[list[i].name], i * sw, w0, H, box);
+    }
+  }
+  function makeStrip(ch, x, sw, H, box) {
+    var el = mk('div', 'st', box);
+    el.style.left = x + 'px'; el.style.width = sw + 'px';
+    var nm = mk('div', 'sn', el); nm.innerHTML = esc(ch.name);
+    var db = mk('div', 'sdb', el);
+    var fh = H - 58 - 92; if (fh < 80) fh = 80;
+    var sf = mk('div', 'sf', el); sf.style.height = fh + 'px';
+    var thH = 34, thW = Math.min(52, sw - 34), cx = Math.floor(sw / 2);
+    var m1 = mk('div', 'sm', sf), m2 = mk('div', 'sm', sf);
+    m1.style.left = (cx - Math.floor(thW / 2) - 13) + 'px';
+    m2.style.left = (cx - Math.floor(thW / 2) - 7) + 'px';
+    m1.style.top = m2.style.top = Math.floor(thH / 2) + 'px';
+    m1.style.bottom = m2.style.bottom = Math.floor(thH / 2) + 'px';
+    var mk1 = mk('i', '', m1), mk2 = mk('i', '', m2);
+    mk('div', 'srail', sf);
+    var ticks = fh >= 170 ? [0, -5, -10, -20, -30, -40, -60] : [0, -10, -20, -40];
+    for (var t = 0; t < ticks.length; t++) {
+      var tk = mk('span', 'smk', sf);
+      tk.innerHTML = String(ticks[t]);
+      tk.style.left = (cx + Math.ceil(thW / 2) + 6) + 'px';
+      tk.style.top = Math.round(thH / 2 + (1 - mul2pos(Math.pow(10, ticks[t] / 20)) / 1000) * (fh - thH)) + 'px';
+    }
+    var th = mk('div', 'ft', sf);
+    th.style.width = thW + 'px'; th.style.height = thH + 'px'; th.style.left = (cx - Math.floor(thW / 2)) + 'px';
+    var bm = mk('button', 'sbtn mute', el); bm.style.bottom = '46px'; bm.style.height = '38px'; bm.innerHTML = 'MUDO';
+    var bn = mk('button', 'sbtn mon', el); bn.style.bottom = '6px'; bn.style.height = '34px';
+    ch.mx = { el: el, db: db, thumb: th, mute: bm, mon: bn, masks: [mk1, mk2], fh: fh, thH: thH };
+    nm.onclick = function () { openVol(ch.name); };
+    bm.onclick = function () { buzz(12); act('SetInputMute', { inputName: ch.name, inputMuted: !ch.muted }); };
+    bn.onclick = function () {
+      // tocar liga/desliga a monitoração (monitor + saída); "só monitor" volta para desligado
+      var next = ch.mon === MON_NONE ? MON_BOTH : MON_NONE;
+      buzz(12);
+      request('SetInputAudioMonitorType', { inputName: ch.name, monitorType: next }, function (ok, r, rs) {
+        if (!ok) { toast('OBS: ' + (rs.comment || 'não foi possível mudar a monitoração')); return; }
+        ch.mon = next; updStrip(ch);
+      });
+    };
+    bindFader(sf, ch);
+    updStrip(ch);
+  }
+  function updStrip(ch) {
+    var u = ch && ch.mx;
+    if (!u || !u.el.parentNode) return;
+    u.thumb.style.top = Math.round((1 - mul2pos(ch.mul) / 1000) * (u.fh - u.thH)) + 'px';
+    u.db.innerHTML = ch.muted ? 'MUDO' : fmtDb(ch.mul).replace(' dB', '');
+    setC(u.el, 'muted', ch.muted);
+    setC(u.mute, 'on', ch.muted);
+    setC(u.mon, 'on', ch.mon === MON_BOTH);
+    setC(u.mon, 'only', ch.mon === MON_ONLY);
+    u.mon.innerHTML = ch.mon === MON_ONLY ? 'SÓ MON' : 'MON';
+  }
+  // arraste relativo (como um fader de verdade): o volume não pula para onde o dedo tocou
+  function bindFader(area, ch) {
+    var f = { sy: 0, sp: 0, active: false };
+    f.begin = function (y) {
+      f.active = true; f.sy = y; f.sp = mul2pos(ch.mul);
+      ch.dragging = true; clearTimeout(ch.dragT);
+      if (ch.mx) addC(ch.mx.thumb, 'grab');
+    };
+    f.move = function (y) {
+      if (!f.active || !ch.mx) return;
+      var p = f.sp + (f.sy - y) / (ch.mx.fh - ch.mx.thH) * 1000;
+      p = p < 0 ? 0 : (p > 1000 ? 1000 : p);
+      ch.mul = pos2mul(p);
+      updAudioKey(ch); if (volCh === ch) updVol();
+      queueVol(ch);
+    };
+    f.end = function () {
+      if (!f.active) return;
+      f.active = false;
+      ch.dragT = setTimeout(function () { ch.dragging = false; }, 800);
+      if (ch.mx) remC(ch.mx.thumb, 'grab');
+    };
+    on(area, 'touchstart', function (e) { lastTouch = now(); e.preventDefault(); f.begin(e.touches[0].clientY); });
+    on(area, 'touchmove', function (e) { e.preventDefault(); f.move(e.touches[0].clientY); });
+    on(area, 'touchend', function (e) { lastTouch = now(); e.preventDefault(); f.end(); });
+    on(area, 'touchcancel', function () { f.end(); });
+    on(area, 'mousedown', function (e) { if (now() - lastTouch < 800 || e.button !== 0) return; e.preventDefault(); fdr = f; f.begin(e.clientY); });
+    function wheel(e) {
+      e.preventDefault();
+      var dlt = e.deltaY || -e.wheelDelta || 0;
+      if (dlt) stepDb(ch, dlt < 0 ? 1 : -1);
+    }
+    on(area, 'wheel', wheel);
+    on(area, 'mousewheel', wheel);
+  }
+  on(d, 'mousemove', function (e) { if (fdr) fdr.move(e.clientY); });
+  on(d, 'mouseup', function () { if (fdr) { fdr.end(); fdr = null; } });
+
+  /* ---------- chat ---------- */
+  var tw = null, twChan = '', twJoined = false, twRetry = null, unread = 0, chatOpen = false;
+  function chatVisible() {
+    if (!hasC(d.body, 'haschat')) return false;
+    if (hasC(d.body, 'split')) return !hasC(d.body, 'chatmin');
+    return chatOpen || vw() >= 1000;
+  }
+
+  /* chat junto com as teclas: posiciona deck, barra e chat em px (sem flexbox) */
+  var SPLIT_BAR = 14, TOP_H = 48, DOCK_H = 60;
+  function vh() { return w.innerHeight || d.documentElement.clientHeight; }
+  function isSplit() { return hasC(d.body, 'haschat') && cfg.chatMode !== 'tab' && vw() < 1000; }
+  function clampPct(p) { p = +p; if (!(p > 0)) p = 40; return p < 15 ? 15 : (p > 80 ? 80 : Math.round(p)); }
+  function applyLayout() {
+    var split = isSplit(), W = vw(), H = vh(), side = split && W > H && W >= 560;
+    var dw = $('deckWrap').style, ch = $('chat').style, bar = $('splitBar').style;
+    dw.right = dw.bottom = ch.top = ch.bottom = ch.left = ch.width = bar.top = bar.right = '';
+    setC(d.body, 'split', split);
+    setC(d.body, 'splitside', side);
+    setC(d.body, 'chatmin', split && !side && !!cfg.chatMin);
+    if (!split) return;
+    if (chatOpen) toggleChat(false);
+    var pct = clampPct(cfg.chatSplit);
+    if (side) {
+      var cw = Math.round(W * pct / 100), maxW = W - SPLIT_BAR - 220;
+      if (cw < 200) cw = 200;
+      if (cw > maxW) cw = Math.max(160, maxW);
+      ch.top = TOP_H + 'px'; ch.bottom = DOCK_H + 'px'; ch.left = 'auto'; ch.width = cw + 'px';
+      bar.right = cw + 'px';
+      dw.right = (cw + SPLIT_BAR) + 'px';
+    } else {
+      var av = H - TOP_H - DOCK_H, chH, maxH = av - SPLIT_BAR - 130;
+      if (cfg.chatMin) chH = 40;
+      else {
+        chH = Math.round(av * pct / 100);
+        if (chH < 120) chH = 120;
+        if (chH > maxH) chH = Math.max(80, maxH);
+      }
+      ch.top = (H - DOCK_H - chH) + 'px'; ch.bottom = DOCK_H + 'px';
+      bar.top = (H - DOCK_H - chH - SPLIT_BAR) + 'px';
+      dw.bottom = (DOCK_H + chH + SPLIT_BAR) + 'px';
+    }
+    if (chatVisible()) { unread = 0; updUnread(); }
+    var l = $('chatList'); l.scrollTop = l.scrollHeight; $('newBtn').style.display = 'none';
+  }
+  function setChatMin(v) {
+    cfg.chatMin = !!v; saveCfg();
+    applyLayout(); renderDeck();
+  }
+  function toggleChat(open) {
+    chatOpen = !!open;
+    setC(d.body, 'chatopen', chatOpen);
+    setC($('tabChat'), 'act', chatOpen);
+    if (chatOpen) {
+      var tabs = ['all', 'scenes', 'audio', 'actions'];
+      for (var i = 0; i < tabs.length; i++) remC($('tab_' + tabs[i]), 'act');
+      unread = 0; updUnread();
+      var l = $('chatList'); l.scrollTop = l.scrollHeight; $('newBtn').style.display = 'none';
+    } else {
+      setC($('tab_' + page), 'act', true);
+    }
+  }
+  function twSend(s) { try { tw.send(s); } catch (e) {} }
+  function twDisconnect() {
+    clearTimeout(twRetry);
+    twChan = '';
+    if (tw) { var o = tw; tw = null; o.onclose = null; o.onmessage = null; try { o.close(); } catch (e) {} }
+  }
+  function twName(v) {
+    var m = v.match(/twitch\.tv\/([A-Za-z0-9_]+)/);
+    return trim(m ? m[1] : v.replace(/^#/, '')).toLowerCase();
+  }
+  function twConnect(chan) {
+    twDisconnect();
+    if (!chan) return;
+    twChan = chan; twJoined = false;
+    chatSys('Conectando ao chat de #' + chan + '…');
+    var sock;
+    try { sock = new WebSocket('wss://irc-ws.chat.twitch.tv:443'); }
+    catch (e) { chatSys('Não foi possível abrir o chat neste navegador.'); return; }
+    tw = sock;
+    sock.onopen = function () {
+      twSend('CAP REQ :twitch.tv/tags twitch.tv/commands');
+      twSend('PASS SCHMOOPIIE');
+      twSend('NICK justinfan' + (10000 + Math.floor(Math.random() * 80000)));
+      twSend('JOIN #' + chan);
+    };
+    sock.onmessage = function (ev) {
+      if (tw !== sock) return;
+      var lines = String(ev.data).split('\r\n');
+      for (var i = 0; i < lines.length; i++) twLine(lines[i]);
+    };
+    sock.onclose = function () {
+      if (tw !== sock) return;
+      tw = null;
+      chatSys('Chat desconectado. Reconectando…');
+      twRetry = setTimeout(function () { twConnect(chan); }, 4000);
+    };
+    sock.onerror = function () {};
+  }
+  function twLine(line) {
+    if (!line) return;
+    if (line.indexOf('PING') === 0) { twSend('PONG' + line.substr(4)); return; }
+    var tags = {}, i;
+    if (line.charAt(0) === '@') {
+      var sp = line.indexOf(' '), ts = line.substring(1, sp).split(';');
+      line = line.substring(sp + 1);
+      for (i = 0; i < ts.length; i++) {
+        var eq = ts[i].indexOf('=');
+        if (eq < 0) continue;
+        tags[ts[i].substring(0, eq)] = ts[i].substring(eq + 1).replace(/\\s/g, ' ').replace(/\\:/g, ';').replace(/\\\\/g, '\\');
+      }
+    }
+    var prefix = '';
+    if (line.charAt(0) === ':') { var sp2 = line.indexOf(' '); prefix = line.substring(1, sp2); line = line.substring(sp2 + 1); }
+    var trail = null, ti = line.indexOf(' :');
+    if (ti > -1) { trail = line.substring(ti + 2); line = line.substring(0, ti); }
+    var cmd = line.split(' ')[0], nick = prefix.split('!')[0];
+
+    if (cmd === 'PRIVMSG') {
+      var text = trail || '', action = false;
+      if (text.charAt(0) === '\u0001' && text.indexOf('ACTION ') === 1) { action = true; text = text.substring(8).replace(/\u0001$/, ''); }
+      var user = nick.toLowerCase(), name = tags['display-name'] || nick;
+      addMsg(badges(tags.badges) + '<span class="n" style="color:' + nameColor(tags.color, user) + '">' + esc(name) + '</span>' +
+        (action ? ' ' : ': ') + '<span class="t">' + renderText(text, tags.emotes) + '</span>', action ? 'act' : '', user, tags.id);
+    } else if (cmd === 'ROOMSTATE') {
+      if (!twJoined) { twJoined = true; chatSys('Conectado ao chat de #' + twChan); }
+    } else if (cmd === 'USERNOTICE') {
+      var h = esc(tags['system-msg'] || '');
+      if (trail) h += '<br>' + renderText(trail, tags.emotes);
+      if (h) addMsg(h, 'note');
+    } else if (cmd === 'CLEARCHAT') {
+      var list = $('chatList');
+      if (trail) {
+        for (i = list.childNodes.length - 1; i >= 0; i--) {
+          var nd = list.childNodes[i];
+          if (nd.getAttribute && nd.getAttribute('data-u') === trail.toLowerCase()) list.removeChild(nd);
+        }
+      } else { list.innerHTML = ''; chatSys('O chat foi limpo por um moderador.'); }
+    } else if (cmd === 'CLEARMSG') {
+      var el = $('m-' + tags['target-msg-id']);
+      if (el) el.parentNode.removeChild(el);
+    } else if (cmd === 'NOTICE') {
+      if (trail) chatSys(trail);
+    } else if (cmd === 'RECONNECT') {
+      if (tw) try { tw.close(); } catch (e) {}
+    }
+  }
+  function badges(b) {
+    if (!b) return '';
+    var out = '', parts = b.split(','), seen = {};
+    for (var i = 0; i < parts.length; i++) {
+      var k = parts[i].split('/')[0], lab = null, cls = '';
+      if (k === 'broadcaster') { lab = 'HOST'; cls = 'host'; }
+      else if (k === 'moderator') { lab = 'MOD'; cls = 'mod'; }
+      else if (k === 'vip') { lab = 'VIP'; cls = 'vip'; }
+      else if (k === 'subscriber' || k === 'founder') { lab = 'SUB'; cls = 'sub'; }
+      if (lab && !seen[lab]) { seen[lab] = 1; out += '<span class="bd bd-' + cls + '">' + lab + '</span>'; }
+    }
+    return out;
+  }
+  function nameColor(c, user) {
+    if (!/^#[0-9a-f]{6}$/i.test(c || '')) return 'hsl(' + hue(user) + ',70%,65%)';
+    var r = parseInt(c.substr(1, 2), 16), g = parseInt(c.substr(3, 2), 16), b = parseInt(c.substr(5, 2), 16);
+    if ((r * 299 + g * 587 + b * 114) / 1000 < 100) {
+      r = Math.round(r + (255 - r) * 0.5); g = Math.round(g + (255 - g) * 0.5); b = Math.round(b + (255 - b) * 0.5);
+      return 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+    return c;
+  }
+  function renderText(text, emotes) {
+    if (!emotes) return esc(text);
+    var chars = text.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\s\S]/g) || [], reps = [], groups = emotes.split('/'), i, j;
+    for (i = 0; i < groups.length; i++) {
+      var p = groups[i].split(':');
+      if (p.length < 2) continue;
+      var ranges = p[1].split(',');
+      for (j = 0; j < ranges.length; j++) { var se = ranges[j].split('-'); reps.push({ s: +se[0], e: +se[1], id: p[0] }); }
+    }
+    reps.sort(function (a, b) { return a.s - b.s; });
+    var out = '', pos = 0;
+    for (i = 0; i < reps.length; i++) {
+      var rp = reps[i];
+      if (rp.s < pos || isNaN(rp.s)) continue;
+      out += esc(chars.slice(pos, rp.s).join(''));
+      var nm = chars.slice(rp.s, rp.e + 1).join('');
+      out += '<img class="emo" alt="' + esc(nm) + '" title="' + esc(nm) + '" src="https://static-cdn.jtvnw.net/emoticons/v2/' + encodeURIComponent(rp.id) + '/default/dark/1.0">';
+      pos = rp.e + 1;
+    }
+    return out + esc(chars.slice(pos).join(''));
+  }
+  function chatSys(t) { addMsg(esc(t), 'sys'); }
+  function addMsg(html, cls, user, id) {
+    var list = $('chatList');
+    var atBottom = !list.clientHeight || (list.scrollTop + list.clientHeight >= list.scrollHeight - 40);
+    var el = d.createElement('div');
+    el.className = 'msg' + (cls ? ' ' + cls : '');
+    if (user) el.setAttribute('data-u', user);
+    if (id) el.id = 'm-' + id;
+    el.innerHTML = html;
+    list.appendChild(el);
+    while (list.childNodes.length > MAXMSG) list.removeChild(list.firstChild);
+    if (atBottom) list.scrollTop = list.scrollHeight;
+    else $('newBtn').style.display = 'block';
+    if (cls !== 'sys' && !chatVisible()) { unread++; updUnread(); }
+  }
+  function updUnread() {
+    var b = $('unread');
+    b.innerHTML = unread > 99 ? '99+' : String(unread);
+    b.style.display = unread ? 'block' : 'none';
+    var mb = $('minUnread');
+    mb.innerHTML = b.innerHTML;
+    setC(mb, 'has', unread > 0);
+  }
+  function ytId(v) {
+    var m = v.match(/[?&]v=([\w-]{6,})/) || v.match(/(?:youtu\.be|\/live|\/shorts|\/embed)\/([\w-]{6,})/);
+    return m ? m[1] : trim(v);
+  }
+  function showFrame(src) {
+    var fw = $('frameWrap');
+    $('chatList').style.display = 'none';
+    $('szBox').style.display = 'none';
+    fw.style.display = 'block';
+    fw.innerHTML = '<iframe src="' + esc(src) + '" frameborder="0"></iframe>';
+  }
+  function setupChat() {
+    twDisconnect();
+    var t = cfg.chatType, v = trim(cfg.chatVal);
+    setC(d.body, 'haschat', t !== 'none' && !!v);
+    $('chatList').innerHTML = '';
+    $('chatList').style.display = 'block';
+    $('szBox').style.display = '';
+    $('frameWrap').innerHTML = '';
+    $('frameWrap').style.display = 'none';
+    $('newBtn').style.display = 'none';
+    unread = 0; updUnread();
+    if (t === 'twitch' && v) {
+      var c = twName(v);
+      $('chatTitle').innerHTML = 'Twitch &middot; ' + esc(c);
+      twConnect(c);
+    } else if (t === 'youtube' && v) {
+      $('chatTitle').innerHTML = 'YouTube';
+      showFrame('https://www.youtube.com/live_chat?v=' + encodeURIComponent(ytId(v)) +
+        '&embed_domain=' + encodeURIComponent(w.location.hostname || 'localhost') + '&dark_theme=1');
+    } else if (t === 'url' && v) {
+      $('chatTitle').innerHTML = 'Chat';
+      showFrame(/^https?:\/\//i.test(v) ? v : 'https://' + v);
+    }
+    if (!hasC(d.body, 'haschat') && chatOpen) toggleChat(false);
+    applyLayout();
+  }
+  function applyChatSize() { $('chatList').style.fontSize = cfg.chatSize + 'px'; }
+
+  /* ---------- tela ligada ---------- */
+  var wakeLock = null;
+  function keepAwake() {
+    if (!cfg.wake || wakeLock || !w.navigator.wakeLock) return;
+    try {
+      w.navigator.wakeLock.request('screen').then(function (l) {
+        wakeLock = l;
+        l.addEventListener('release', function () { wakeLock = null; });
+      })['catch'](function () {});
+    } catch (e) {}
+  }
+
+  /* ---------- ajustes ---------- */
+  var CHAT_UI = {
+    twitch: ['Canal da Twitch', 'nomedocanal ou link do canal', 'Leitura anônima, não precisa de login.'],
+    youtube: ['Link ou ID da live do YouTube', 'https://youtube.com/live/...', 'O YouTube nem sempre libera o chat incorporado. Se não carregar, use “Outra URL” com o link do chat pop-out.'],
+    url: ['URL do chat', 'https://...', 'Qualquer página de chat que aceite ser incorporada (ex.: Social Stream Ninja, Restream Chat).']
+  };
+  function updChatField() {
+    var t = $('sChatType').value, ui = CHAT_UI[t];
+    $('sChatValBox').style.display = ui ? 'block' : 'none';
+    if (ui) { $('sChatValLabel').innerHTML = ui[0]; $('sChatVal').placeholder = ui[1]; $('sChatHint').innerHTML = esc(ui[2]); }
+  }
+  function openSettings(msg) {
+    $('sHost').value = cfg.host; $('sPort').value = cfg.port; $('sPass').value = cfg.pass;
+    $('sRemember').checked = !!cfg.remember; $('sMeters').checked = !!cfg.meters; $('sWake').checked = !!cfg.wake;
+    $('sVibrate').checked = !!cfg.vibrate; $('sLayout').value = cfg.layout;
+    $('sPreview').checked = !!cfg.preview; $('sPrevInt').value = String(cfg.prevInt || 1000);
+    $('sChatType').value = cfg.chatType; $('sChatVal').value = cfg.chatVal;
+    $('sChatMode').value = cfg.chatMode === 'tab' ? 'tab' : 'split';
+    $('sMsg').innerHTML = msg ? esc(msg) : '';
+    $('sMsg').style.display = msg ? 'block' : 'none';
+    var lh = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(cfg.host);
+    $('sHttps').style.display = (w.location.protocol === 'https:' && !lh) ? 'block' : 'none';
+    updChatField();
+    $('set').style.display = 'block';
+  }
+  function closeSettings() { $('set').style.display = 'none'; }
+
+  /* ---------- ligações da interface ---------- */
+  $('tab_all').onclick = function () { setPage('all'); };
+  $('tab_scenes').onclick = function () { setPage('scenes'); };
+  $('tab_audio').onclick = function () { setPage('audio'); };
+  $('tab_actions').onclick = function () { setPage('actions'); };
+  $('tabChat').onclick = function () { setPage('chat'); };
+  $('pgPrev').onclick = function () { goPage(-1); };
+  $('pgNext').onclick = function () { goPage(1); };
+  $('btnSet').onclick = function () { openSettings(); };
+  $('btnLive').onclick = function () { buzz(12); doAction('live'); };
+  $('btnRec').onclick = function () { buzz(12); doAction('rec'); };
+  $('btnCancel').onclick = closeSettings;
+  $('sChatType').onchange = updChatField;
+  $('vSl').oninput = volMove;
+  $('vSl').onchange = volMove;
+  $('vDn').onclick = function () { volStep(-2); };
+  $('vUp').onclick = function () { volStep(2); };
+  $('vMute').onclick = function () { if (volCh) act('SetInputMute', { inputName: volCh.name, inputMuted: !volCh.muted }); };
+  $('vHide').onclick = function () { if (volCh) { cfg.hidden.push(volCh.name); saveCfg(); closeVol(); renderDeck(); toast('Fonte oculta — restaure em Ajustes'); } };
+  $('vClose').onclick = closeVol;
+  $('vol').onclick = function (e) { if ((e.target || e.srcElement) === this) closeVol(); };
+  $('btnSave').onclick = function () {
+    var host = trim($('sHost').value).replace(/^wss?:\/\//i, '').replace(/\/.*$/, ''), port = trim($('sPort').value);
+    var m = host.match(/^(.*):(\d+)$/);
+    if (m && m[1].indexOf(':') < 0) { host = m[1]; port = m[2]; }
+    cfg.host = host || 'localhost';
+    cfg.port = port || '4455';
+    cfg.pass = $('sPass').value;
+    cfg.remember = $('sRemember').checked;
+    cfg.meters = $('sMeters').checked;
+    cfg.wake = $('sWake').checked;
+    cfg.vibrate = $('sVibrate').checked;
+    cfg.layout = $('sLayout').value;
+    cfg.preview = $('sPreview').checked;
+    cfg.prevInt = +$('sPrevInt').value || 1000;
+    cfg.chatType = $('sChatType').value;
+    cfg.chatVal = trim($('sChatVal').value);
+    cfg.chatMode = $('sChatMode').value;
+    saveCfg();
+    closeSettings();
+    setC(d.body, 'nometer', !cfg.meters);
+    setupChat();
+    renderDeck();
+    connect();
+  };
+  $('btnFull').onclick = function () {
+    var e = d.documentElement,
+      f = e.requestFullscreen || e.webkitRequestFullscreen || e.webkitRequestFullScreen || e.mozRequestFullScreen || e.msRequestFullscreen;
+    if (f) { try { f.call(e); } catch (x) {} closeSettings(); }
+    else toast('Tela cheia não é suportada neste navegador');
+  };
+  $('btnUnhide').onclick = function () {
+    var n = cfg.hidden.length;
+    cfg.hidden = []; saveCfg(); renderDeck();
+    toast(n ? 'Fontes restauradas no deck' : 'Nenhuma fonte oculta');
+  };
+  $('szDn').onclick = function () { if (cfg.chatSize > 11) { cfg.chatSize--; applyChatSize(); saveCfg(); } };
+  $('szUp').onclick = function () { if (cfg.chatSize < 30) { cfg.chatSize++; applyChatSize(); saveCfg(); } };
+  $('pvMin').onclick = function () { cfg.prevMin = true; saveCfg(); renderDeck(); };
+  $('pvShow').onclick = function () {
+    cfg.prevMin = false; saveCfg(); renderDeck();
+    addC($('pv_prog'), 'stale'); addC($('pv_prev'), 'stale');
+    pv.busy.prog = pv.busy.prev = 0; prevTick();
+  };
+  $('newBtn').onclick =function () { var l = $('chatList'); l.scrollTop = l.scrollHeight; this.style.display = 'none'; };
+  $('chatList').onscroll = function () { if (this.scrollTop + this.clientHeight >= this.scrollHeight - 40) $('newBtn').style.display = 'none'; };
+
+  // deslizar para trocar de página
+  (function () {
+    var sx = 0, sy = 0, st = 0, wrap = $('deckWrap');
+    on(wrap, 'touchstart', function (e) { var t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = now(); });
+    on(wrap, 'touchend', function (e) {
+      var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (now() - st < 600 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) goPage(dx < 0 ? 1 : -1);
+    });
+  })();
+
+  // barra entre teclas e chat: arrastar redimensiona, tocar recolhe/expande (retrato)
+  (function () {
+    var bar = $('splitBar'), dragging = false, moved = false, sx = 0, sy = 0, dT = null;
+    function setFrom(x, y) {
+      var W = vw(), H = vh();
+      if (hasC(d.body, 'splitside')) cfg.chatSplit = clampPct((W - x - SPLIT_BAR / 2) / W * 100);
+      else { cfg.chatMin = false; cfg.chatSplit = clampPct((H - DOCK_H - y - SPLIT_BAR / 2) / (H - TOP_H - DOCK_H) * 100); }
+      applyLayout();
+      clearTimeout(dT); dT = setTimeout(renderDeck, 100);
+    }
+    function start(x, y) { dragging = true; moved = false; sx = x; sy = y; }
+    function move(x, y) {
+      if (!dragging) return;
+      if (!moved && Math.abs(x - sx) < 6 && Math.abs(y - sy) < 6) return;
+      moved = true; setFrom(x, y);
+    }
+    function end() {
+      if (!dragging) return;
+      dragging = false;
+      if (!moved) { if (!hasC(d.body, 'splitside')) { buzz(12); setChatMin(!cfg.chatMin); } return; }
+      saveCfg(); clearTimeout(dT); renderDeck();
+    }
+    on(bar, 'touchstart', function (e) { lastTouch = now(); e.preventDefault(); var t = e.touches[0]; start(t.clientX, t.clientY); });
+    on(bar, 'touchmove', function (e) { e.preventDefault(); var t = e.touches[0]; move(t.clientX, t.clientY); });
+    on(bar, 'touchend', function (e) { lastTouch = now(); e.preventDefault(); end(); });
+    on(bar, 'touchcancel', function () { dragging = false; });
+    on(bar, 'mousedown', function (e) { if (now() - lastTouch < 800 || e.button !== 0) return; e.preventDefault(); start(e.clientX, e.clientY); });
+    on(d, 'mousemove', function (e) { if (dragging) move(e.clientX, e.clientY); });
+    on(d, 'mouseup', function () { if (now() - lastTouch < 800) return; end(); });
+  })();
+  // com o chat recolhido, tocar no cabeçalho expande
+  $('chat').getElementsByTagName('div')[0].onclick = function (e) {
+    var t = e.target || e.srcElement;
+    if (hasC(d.body, 'chatmin') && t.tagName !== 'BUTTON') setChatMin(false);
+  };
+
+  var rsT = null;
+  function onResize() { clearTimeout(rsT); rsT = setTimeout(function () { applyLayout(); updOut(); }, 120); } // updOut ajusta os rótulos do topo e redesenha
+  on(w, 'resize', onResize);
+  on(w, 'orientationchange', onResize);
+  on(d, 'visibilitychange', function () { if (!d.hidden) { keepAwake(); if (wantConnect && !ws) connect(); } });
+  on(d, 'keydown', function (e) {
+    if ($('set').style.display === 'block') return;
+    if (e.keyCode === 37) goPage(-1); else if (e.keyCode === 39) goPage(1); else if (e.keyCode === 27) closeVol();
+  });
+
+  /* ---------- início ---------- */
+  if (w.CSS && w.CSS.supports) addC(d.documentElement, 'fr');
+  loadCfg();
+  applyChatSize();
+  setC(d.body, 'nometer', !cfg.meters);
+  setupChat();
+  setPage(urlPage || store('obsdeck_page') || cfg.page || 'all');
+  updOut();
+  if (hadCfg) connect(); else openSettings();
+
+  w.__obsdeck = { sha256: sha256, makeAuth: makeAuth };
+})();
+</script>
+</body>
+</html>
