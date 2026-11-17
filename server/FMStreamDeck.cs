@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 
 [assembly: AssemblyTitle("FM-Stream Deck")]
-[assembly: AssemblyProduct("FM-Stream Deck (Free Mobile Stream Deck)")]
+[assembly: AssemblyProduct("FM-Stream Deck")] // precisa ser igual ao nome do projeto (exigência da SignPath)
 [assembly: AssemblyDescription("Servidor da rede local do FM-Stream Deck")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]

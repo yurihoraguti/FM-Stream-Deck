@@ -145,7 +145,21 @@ server\build.bat
 GitHub Actions builds it on every push and attaches a ready-to-use zip to each [release](../../releases) (`v*` tags).
 
 > ⚠️ **Windows Smart App Control / SmartScreen:** Windows 11 with Smart App Control blocks **unsigned** executables. If the `.exe` is blocked, use `FM-Stream Deck.bat`, which does exactly the same thing and runs everywhere.
-> To ship a signed build, add a code-signing certificate as the repository secrets `SIGN_PFX_BASE64` and `SIGN_PFX_PASSWORD`. The workflow then signs the executable automatically. Options include Azure Trusted Signing, a commercial OV certificate, or [SignPath Foundation](https://signpath.org/) (free for open source).
+> Release builds will be signed through the free [SignPath Foundation](https://signpath.org/) program for open source (application pending). See the [code signing policy](CODE_SIGNING.md).
+
+## ✍️ Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+Committers, reviewers and approvers: [@yurihoraguti](https://github.com/yurihoraguti). Full policy, team roles and privacy statement: [CODE_SIGNING.md](CODE_SIGNING.md).
+
+## 🛡️ Privacy
+
+FM-Stream Deck has **no telemetry, analytics or accounts**. It only talks to the OBS Studio address you configure. It contacts third-party services only when **you** enable them, for example Twitch or YouTube chat. Settings are stored only in each device's browser. See the [privacy policy](CODE_SIGNING.md#privacy-policy).
+
+## 🧹 Uninstall
+
+Nothing is installed. Click **Remover regras** in the management panel (or run `"FM-Stream Deck.bat" -RemoveFirewall`) to delete the firewall rules, then delete the folder.
 
 ## 📁 Project structure
 
@@ -156,9 +170,10 @@ GitHub Actions builds it on every push and attaches a ready-to-use zip to each [
 │   ├── server.ps1         # local web server + management panel API (PowerShell 5.1+)
 │   ├── panel.html         # management panel (QR codes, firewall, devices, log)
 │   ├── FMStreamDeck.cs    # same server as a standalone .exe (C# 5 / .NET Framework 4)
-│   └── build.bat          # compiles (and optionally signs) the .exe
-├── docs/                  # screenshots
-└── .github/workflows/     # CI: build, sign and release
+│   └── build.bat          # compiles the .exe
+├── docs/                  # screenshots and maintainer guides
+├── CODE_SIGNING.md        # code signing policy and privacy statement
+└── .github/workflows/     # CI: build, sign (SignPath) and release
 ```
 
 ## 🧩 Compatibility
