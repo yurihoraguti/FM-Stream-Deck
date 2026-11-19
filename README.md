@@ -116,7 +116,7 @@ Example: `http://192.168.0.10:8080/obs-deck.html?host=192.168.0.10&twitch=yourch
 ```
 ┌──────────────┐   http://PC-IP:8080   ┌──────────────────────────┐
 │ Phone/Tablet │ ────────────────────▶ │ FM-Stream Deck server    │  serves obs-deck.html
-│  (browser)   │                       │ (PowerShell or .exe)     │  + panel on localhost
+│  (browser)   │                       │ (PowerShell)             │  + panel on localhost
 │              │   ws://PC-IP:4455     ├──────────────────────────┤
 │              │ ────────────────────▶ │ OBS Studio               │  obs-websocket v5
 └──────────────┘                       └──────────────────────────┘
@@ -135,32 +135,25 @@ OBS only accepts **unencrypted** `ws://` connections. Browsers block `ws://` con
 - The web server only serves page assets from the project folder. It blocks path traversal and does not serve scripts, Markdown or executables.
 - obs-websocket traffic is **not encrypted**. Use it on networks you trust, and for remote access prefer a VPN such as Tailscale or ZeroTier instead of opening ports on your router.
 
-## 📦 The executable (`FMStreamDeck.exe`)
-
-`server/FMStreamDeck.cs` is a single-file C# version of the server with the same features and the same panel. It compiles with the C# compiler that **ships with Windows**, with no SDK required:
-
-```bat
-server\build.bat
-```
-
-GitHub Actions builds it on every push and attaches a ready-to-use zip to each [release](../../releases) (`v*` tags).
-
-> ⚠️ **Windows Smart App Control / SmartScreen:** Windows 11 with Smart App Control blocks **unsigned** executables. If the `.exe` is blocked, use `FM-Stream Deck.bat`, which does exactly the same thing and runs everywhere.
-> Release builds will be signed through the free [SignPath Foundation](https://signpath.org/) program for open source (application pending). See the [code signing policy](CODE_SIGNING.md).
-
-## ✍️ Code signing policy
-
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
-
-Committers, reviewers and approvers: [@yurihoraguti](https://github.com/yurihoraguti). Full policy, team roles and privacy statement: [CODE_SIGNING.md](CODE_SIGNING.md).
-
 ## 🛡️ Privacy
 
-FM-Stream Deck has **no telemetry, analytics or accounts**. It only talks to the OBS Studio address you configure. It contacts third-party services only when **you** enable them, for example Twitch or YouTube chat, or Twitch clips after you connect your Twitch account. Settings are stored only in each device's browser. See the [privacy policy](CODE_SIGNING.md#privacy-policy).
+FM-Stream Deck has **no telemetry, analytics or accounts**. The program does not transfer information to other systems unless you ask it to:
+
+- The web server only listens on your local network. It serves the deck page and talks to OBS Studio on your own PC.
+- The deck connects only to the OBS WebSocket address you configure.
+- If **you** enable a chat source, the deck connects to that service: Twitch chat (`irc-ws.chat.twitch.tv`, anonymous read-only, plus emote images from `static-cdn.jtvnw.net`), YouTube live chat, or the URL you provide.
+- If **you** connect a Twitch account for clips, the deck signs in with Twitch's device code flow (`id.twitch.tv`). It calls the Twitch API (`api.twitch.tv`) only when you press the CLIP key, and the only permission it requests is `clips:edit`. The token is stored only in that device's browser, and **Desconectar** removes and revokes it.
+- Settings are stored only in each device's browser (`localStorage`).
 
 ## 🧹 Uninstall
 
-Nothing is installed. Click **Remover regras** in the management panel (or run `"FM-Stream Deck.bat" -RemoveFirewall`) to delete the firewall rules, then delete the folder.
+Nothing is installed. The server can add two inbound Windows Firewall rules, limited to your local subnet, only after you confirm and approve the Windows administrator prompt. To remove them, click **Remover regras** in the management panel or run `"FM-Stream Deck.bat" -RemoveFirewall`. Then delete the folder.
+
+## 🛠️ Standalone executable (not shipped yet)
+
+`server/FMStreamDeck.cs` is a single-file C# version of the server with the same features and the same panel. It compiles with the C# compiler that ships with Windows (`server\build.bat`), and CI compiles it on every push.
+
+It is **not included in releases for now**. Windows 11 Smart App Control blocks unsigned executables, and a signed build needs a paid code-signing certificate. Use `FM-Stream Deck.bat`, which does exactly the same thing and runs on any Windows 10/11.
 
 ## 📁 Project structure
 
@@ -170,11 +163,10 @@ Nothing is installed. Click **Remover regras** in the management panel (or run `
 ├── server/
 │   ├── server.ps1         # local web server + management panel API (PowerShell 5.1+)
 │   ├── panel.html         # management panel (QR codes, firewall, devices, log)
-│   ├── FMStreamDeck.cs    # same server as a standalone .exe (C# 5 / .NET Framework 4)
+│   ├── FMStreamDeck.cs    # same server as a standalone .exe (not shipped yet, unsigned)
 │   └── build.bat          # compiles the .exe
-├── docs/                  # screenshots and maintainer guides
-├── CODE_SIGNING.md        # code signing policy and privacy statement
-└── .github/workflows/     # CI: build, sign (SignPath) and release
+├── docs/                  # screenshots
+└── .github/workflows/     # CI: compile check, package and release
 ```
 
 ## 🧩 Compatibility

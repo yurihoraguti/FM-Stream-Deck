@@ -9,65 +9,25 @@ on:
 
 permissions:
   contents: write
-  actions: read
 
 jobs:
   windows:
     runs-on: windows-latest
-    env:
-      # Signing runs only on release tags, and only after SignPath is configured (see docs/SIGNPATH_SETUP.md).
-      SIGN: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build FMStreamDeck.exe
+      # The standalone .exe is not shipped yet (it needs a paid code-signing certificate),
+      # but we still compile it so the source keeps building.
+      - name: Compile check (FMStreamDeck.exe)
         shell: cmd
         run: server\build.bat
-
-      - name: Stage executable for signing
-        if: env.SIGN == 'true'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force unsigned | Out-Null
-          Copy-Item FMStreamDeck.exe unsigned\
-
-      - name: Upload unsigned executable
-        id: upload-unsigned
-        if: env.SIGN == 'true'
-        uses: actions/upload-artifact@v5
-        with:
-          name: FMStreamDeck-unsigned
-          path: unsigned/FMStreamDeck.exe
-
-      # Free code signing provided by SignPath.io, certificate by SignPath Foundation.
-      - name: Sign with SignPath
-        if: env.SIGN == 'true'
-        uses: signpath/github-action-submit-signing-request@v3
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'fm-stream-deck' }}
-          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
-          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
-          wait-for-completion: true
-          wait-for-completion-timeout-in-seconds: 7200
-          output-artifact-directory: signed
-
-      - name: Use signed executable
-        if: env.SIGN == 'true'
-        shell: pwsh
-        run: |
-          Copy-Item signed\FMStreamDeck.exe FMStreamDeck.exe -Force
-          $sig = Get-AuthenticodeSignature FMStreamDeck.exe
-          Write-Host "Signature: $($sig.Status) - $($sig.SignerCertificate.Subject)"
-          if ($sig.Status -ne 'Valid') { exit 1 }
 
       - name: Package
         shell: pwsh
         run: |
           $out = 'dist\FM-Stream-Deck'
           New-Item -ItemType Directory -Force "$out\server" | Out-Null
-          Copy-Item FMStreamDeck.exe, obs-deck.html, 'FM-Stream Deck.bat', README.md, LICENSE, CODE_SIGNING.md $out
+          Copy-Item obs-deck.html, 'FM-Stream Deck.bat', README.md, LICENSE $out
           Copy-Item server\server.ps1, server\panel.html "$out\server"
           Compress-Archive -Path "$out\*" -DestinationPath dist\FM-Stream-Deck-windows.zip -Force
 
@@ -84,8 +44,5 @@ jobs:
           generate_release_notes: true
           body: |
             ## Download
-            **FM-Stream-Deck-windows.zip** — extract it and double-click **`FM-Stream Deck.bat`** (works on any Windows 10/11).
-            `FMStreamDeck.exe` is the same server as a standalone executable${{ env.SIGN == 'true' && ' (signed)' || ' (unsigned: Windows Smart App Control may block it; use the .bat instead)' }}.
-
-            ## Code signing policy
-            Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). See [CODE_SIGNING.md](https://github.com/${{ github.repository }}/blob/main/CODE_SIGNING.md).
+            **FM-Stream-Deck-windows.zip** — extract it and double-click **`FM-Stream Deck.bat`** (Windows 10/11, nothing to install).
+            The management panel opens in your browser: scan the QR code with your phone to open the deck.

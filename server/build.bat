@@ -1,7 +1,7 @@
 @echo off
 rem Builds FMStreamDeck.exe with the C# compiler that ships with Windows (.NET Framework 4).
 rem obs-deck.html and server\panel.html are embedded; files on disk next to the .exe take priority.
-rem Release builds are signed by the GitHub Actions workflow (SignPath) - see docs\SIGNPATH_SETUP.md.
+rem Note: the .exe is unsigned and is not shipped in releases for now (Windows Smart App Control blocks unsigned executables).
 setlocal
 set "ROOT=%~dp0.."
 set "CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
