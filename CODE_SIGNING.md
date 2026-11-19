@@ -30,6 +30,7 @@ Details:
 - The web server only listens on your local network. It serves the deck page and talks to OBS Studio on your own PC.
 - The deck connects only to the OBS WebSocket address you configure.
 - If **you** enable a chat source, the deck connects to that service: Twitch chat (`irc-ws.chat.twitch.tv`, anonymous read-only, plus emote images from `static-cdn.jtvnw.net`), YouTube live chat, or the URL you provide. Those services' own privacy policies apply.
+- If **you** connect a Twitch account for clips (Settings → Twitch), the deck signs in with Twitch's device code flow (`id.twitch.tv`) and, only when you press the CLIP key, calls the Twitch API (`api.twitch.tv`) to create a clip. The only permission requested is `clips:edit`. The access token is stored only in that device's browser and can be removed with **Desconectar**, which also revokes it.
 - There is no telemetry, analytics, or account. Settings are stored only in the browser of each device (`localStorage`).
 
 ## System changes and uninstallation

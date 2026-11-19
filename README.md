@@ -39,6 +39,7 @@ Hardware stream decks are great, but they cost money and you probably already ow
 | 🎚️ **Audio mixer** | A mixing-console view with **vertical faders**, stereo **level meters**, **MUTE** and **MON** (audio monitoring on/off) per source. Faders use relative drag like real hardware, so the volume never jumps to your finger. |
 | 🔴 **Stream & Record** | Always-visible header buttons with clear live/recording/paused states and confirmations. |
 | ⚡ **Actions** | Studio Mode, Transition, Pause/Resume recording, Replay Buffer (start/save) and Virtual Camera. |
+| ✂️ **Twitch clips** | A **CLIP** key creates a clip of your live stream in one tap; long-press opens the last clip. You sign in once per device with Twitch's device code (enter a short code at twitch.tv/activate), so no server or HTTPS is needed. Tokens refresh automatically. |
 | 💬 **Live chat** | **Twitch** (anonymous, with emotes and badges), **YouTube** or any embeddable chat URL. On phones the chat sits **below the deck** with a draggable divider; on wide screens it is a side column. |
 | 📐 **Stream Deck layout** | Auto grid or 3×2, 5×3, 4×4, 8×4. Paging with arrows or swipe. Long-press for secondary actions. |
 | 🖥️ **Management panel** | A dashboard on the PC with **QR codes** for each network address, OBS detection, firewall status with one-click rules, connected devices and an access log. |
@@ -155,7 +156,7 @@ Committers, reviewers and approvers: [@yurihoraguti](https://github.com/yurihora
 
 ## 🛡️ Privacy
 
-FM-Stream Deck has **no telemetry, analytics or accounts**. It only talks to the OBS Studio address you configure. It contacts third-party services only when **you** enable them, for example Twitch or YouTube chat. Settings are stored only in each device's browser. See the [privacy policy](CODE_SIGNING.md#privacy-policy).
+FM-Stream Deck has **no telemetry, analytics or accounts**. It only talks to the OBS Studio address you configure. It contacts third-party services only when **you** enable them, for example Twitch or YouTube chat, or Twitch clips after you connect your Twitch account. Settings are stored only in each device's browser. See the [privacy policy](CODE_SIGNING.md#privacy-policy).
 
 ## 🧹 Uninstall
 
@@ -192,6 +193,7 @@ Nothing is installed. Click **Remover regras** in the management panel (or run `
 - [ ] English UI and i18n
 - [ ] Auto fades (tap to fade a source in/out)
 - [ ] Pause recording from the header
+- [x] Twitch clips
 
 ## 🤝 Contributing
 

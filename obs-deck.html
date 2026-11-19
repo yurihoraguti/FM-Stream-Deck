@@ -107,6 +107,7 @@ svg{display:inline-block;vertical-align:middle}
 .key.on-green{background:#1d6b47;background-image:-webkit-linear-gradient(top,#30a46c,#18573a);background-image:linear-gradient(#30a46c,#18573a)}
 .key.on-amber{background:#8a5a00;background-image:-webkit-linear-gradient(top,#d69a1b,#7a5000);background-image:linear-gradient(#d69a1b,#7a5000)}
 .key.on-blue{background:#2a46a8;background-image:-webkit-linear-gradient(top,#5b8cff,#2a46a8);background-image:linear-gradient(#5b8cff,#2a46a8)}
+.key.on-purple{background:#5c2fc2;background-image:-webkit-linear-gradient(top,#9146ff,#4b1fa8);background-image:linear-gradient(#9146ff,#4b1fa8)}
 
 /* dock */
 #dock{position:fixed;left:0;right:0;bottom:0;height:60px;background:#101216;border-top:1px solid #1e2128;z-index:10}
@@ -180,6 +181,10 @@ h3{margin:18px 0 4px;font-size:16px}
 h3:first-child{margin-top:0}
 #set label{display:block;margin:12px 0 4px;color:#9aa1ad;font-size:13px}
 #set label.chk{color:#e6e8ee;font-size:14px;margin:14px 0;line-height:22px}
+#set a{color:#a98bff}
+#twState{font-size:14px;color:#e6e8ee;margin-top:4px}
+#twCode{display:none;margin-top:10px}
+#twUser{font-size:30px;font-weight:700;font-family:Menlo,Consolas,monospace;letter-spacing:4px;text-align:center;margin:8px 0;padding:10px;background:#0d0f13;border:1px solid #2c313c;border-radius:8px;-webkit-user-select:text;user-select:text}
 .chk input{width:20px;height:20px;vertical-align:middle;margin:0 8px 0 0}
 #set input[type=text],#set input[type=password],#set input[type=number],#set select{width:100%;height:44px;padding:0 10px;border-radius:8px;border:1px solid #2c313c;background:#0d0f13;color:#e6e8ee;font-size:16px;-webkit-appearance:none;-webkit-user-select:text;user-select:text}
 .hint{font-size:12px;color:#7d8594;margin-top:5px;line-height:1.45}
@@ -287,6 +292,17 @@ h3:first-child{margin-top:0}
     <div class="hint">No modo “junto”, arraste a barra entre as teclas e o chat para mudar o tamanho, e toque nela para recolher o chat. Em telas com 1000 px ou mais o chat fica sempre numa coluna à direita.</div>
   </div>
 
+  <h3>Twitch (clips)</h3>
+  <div id="twState"></div>
+  <div id="twCode">
+    <div class="hint">Abra <a id="twLink" href="https://www.twitch.tv/activate" target="_blank" rel="noopener">twitch.tv/activate</a> em qualquer aparelho, entre na sua conta e digite o código:</div>
+    <div id="twUser"></div>
+  </div>
+  <div class="row"><button id="twBtn" class="btn">Conectar Twitch</button></div>
+  <label for="sClipChan">Canal para os clips</label>
+  <input id="sClipChan" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="vazio = o canal da conta conectada">
+  <div class="hint">A tecla <b>CLIP</b> (em Ações, e em Tudo quando conectado) cria um clip da live. Segure a tecla para abrir o último clip. A live precisa estar no ar e com clips ativados.</div>
+
   <div class="row"><button id="btnSave" class="btn pri">Salvar e conectar</button><button id="btnCancel" class="btn">Fechar</button></div>
   <div class="row"><button id="btnFull" class="btn">Tela cheia</button><button id="btnUnhide" class="btn">Mostrar fontes ocultas</button></div>
 </div></div>
@@ -374,7 +390,7 @@ h3:first-child{margin-top:0}
   /* ---------- configurações ---------- */
   var cfg = { host: '', port: '4455', pass: '', remember: true, meters: true, wake: true, vibrate: true,
     layout: 'auto', chatType: 'none', chatVal: '', chatSize: 15, hidden: [], page: 'all',
-    chatMode: 'split', chatSplit: 40, chatMin: false,
+    chatMode: 'split', chatSplit: 40, chatMin: false, clipChannel: '',
     preview: true, prevInt: 1000, prevMin: false };
   var hadCfg = false, urlPage = '';
   function loadCfg() {
@@ -674,7 +690,8 @@ h3:first-child{margin-top:0}
     studio: '<rect x="2" y="6" width="9" height="8" rx="1"/><rect x="13" y="6" width="9" height="8" rx="1"/><path d="M6 18h12"/>',
     trans: '<path d="M4 12h14M13 6l6 6-6 6"/>',
     replay: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
-    vcam: '<rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 10l6-3v10l-6-3z"/>'
+    vcam: '<rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 10l6-3v10l-6-3z"/>',
+    clip: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/>'
   };
   function svg(name, size) {
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + IC[name] + '</svg>';
@@ -703,7 +720,11 @@ h3:first-child{margin-top:0}
     if (studio) out.push({ type: 'act', id: 'trans', icon: 'trans', label: 'TRANSIÇÃO', on: 'on-blue' });
     out.push({ type: 'act', id: 'replay', icon: 'replay', label: replayOn ? 'SALVAR REPLAY' : 'REPLAY', on: replayOn ? 'on-green' : '' });
     out.push({ type: 'act', id: 'vcam', icon: 'vcam', label: 'CÂM. VIRTUAL', on: vcamOn ? 'on-green' : '' });
+    out.push(clipKey());
     return out;
+  }
+  function clipKey() {
+    return { type: 'act', id: 'clip', icon: 'clip', label: clipBusy ? 'CLIPANDO…' : 'CLIP', on: clipBusy ? 'on-amber' : (twAuth ? 'on-purple' : '') };
   }
   function pageKeys(p) {
     if (p === 'scenes') return sceneKeys();
@@ -711,6 +732,7 @@ h3:first-child{margin-top:0}
     if (p === 'actions') return actionKeys();
     var a = sceneKeys();
     if (studio) a.push({ type: 'act', id: 'trans', icon: 'trans', label: 'TRANSIÇÃO', on: 'on-blue' });
+    if (twAuth) a.push(clipKey()); // com a Twitch conectada, o CLIP também fica à mão na página Tudo
     return a.concat(audioKeys());
   }
   function doAction(id, held) {
@@ -731,6 +753,10 @@ h3:first-child{margin-top:0}
       else act('StartReplayBuffer', {}, 'Buffer de replay ligado — toque de novo para salvar');
     } else if (id === 'vcam') {
       act('ToggleVirtualCam');
+    } else if (id === 'clip') {
+      if (!held) makeClip();
+      else if (lastClip) w.open(lastClip.edit_url, '_blank');
+      else toast('Nenhum clip criado ainda neste aparelho');
     }
   }
 
@@ -788,7 +814,7 @@ h3:first-child{margin-top:0}
     } else {
       el.className += ' k-act' + (k.on ? ' ' + k.on : '');
       el.innerHTML = '<span class="ki">' + svg(k.icon, ic) + '</span><span class="kl">' + esc(k.label) + '</span>';
-      bindKey(el, function () { doAction(k.id, false); }, k.id === 'replay' ? function () { doAction('replay', true); } : null);
+      bindKey(el, function () { doAction(k.id, false); }, (k.id === 'replay' || k.id === 'clip') ? function () { doAction(k.id, true); } : null);
     }
     return el;
   }
@@ -1411,6 +1437,146 @@ h3:first-child{margin-top:0}
   }
   function applyChatSize() { $('chatList').style.fontSize = cfg.chatSize + 'px'; }
 
+  /* ---------- Twitch: clips (login por código de dispositivo, sem servidor) ---------- */
+  // Client ID público do app "FM-Stream Deck" na Twitch (apps públicos podem expor o Client ID).
+  var TW_CLIENT = 'e88g7btfzvsa4e00tr5fmpdq0twuxt', TW_SCOPES = 'clips:edit';
+  var TW_FORM = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  var twAuth = null, twDev = null, twDevT = null, lastClip = null, clipBusy = false, clipChan = { login: '', id: '' };
+
+  function http(method, url, headers, body, cb) {
+    var x;
+    try { x = new XMLHttpRequest(); x.open(method, url, true); } catch (e) { cb(0, {}); return; }
+    for (var k in headers) if (headers.hasOwnProperty(k)) x.setRequestHeader(k, headers[k]);
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      var j = null;
+      try { j = JSON.parse(x.responseText); } catch (e) {}
+      cb(x.status, j || {});
+    };
+    try { x.send(body || null); } catch (e2) { cb(0, {}); }
+  }
+  function formBody(o) {
+    var a = [];
+    for (var k in o) if (o.hasOwnProperty(k)) a.push(encodeURIComponent(k) + '=' + encodeURIComponent(o[k]));
+    return a.join('&');
+  }
+  function twLoad() {
+    try { twAuth = JSON.parse(store('obsdeck_twitch') || 'null'); } catch (e) { twAuth = null; }
+    if (twAuth && !twAuth.access) twAuth = null;
+  }
+  function twSave() { store('obsdeck_twitch', twAuth ? JSON.stringify(twAuth) : ''); }
+
+  function twUi(msg) {
+    if (!$('twState')) return;
+    $('twCode').style.display = twDev ? 'block' : 'none';
+    if (twDev) { $('twUser').innerHTML = esc(twDev.user); $('twLink').href = twDev.uri; }
+    if (msg) $('twState').innerHTML = esc(msg);
+    else if (twDev) $('twState').innerHTML = 'Aguardando a autorização na Twitch…';
+    else $('twState').innerHTML = twAuth ? 'Conectada como <b>' + esc(twAuth.login || '?') + '</b>' : 'Não conectada';
+    $('twBtn').innerHTML = twAuth ? 'Desconectar' : (twDev ? 'Cancelar' : 'Conectar Twitch');
+  }
+  function twStartLogin() {
+    twCancelLogin();
+    twUi('Pedindo um código à Twitch…');
+    http('POST', 'https://id.twitch.tv/oauth2/device', TW_FORM, formBody({ client_id: TW_CLIENT, scopes: TW_SCOPES }), function (st, j) {
+      if (st !== 200 || !j.device_code) { twUi('Não foi possível falar com a Twitch (' + (j.message || ('erro ' + st)) + ').'); return; }
+      twDev = { code: j.device_code, user: j.user_code, uri: j.verification_uri || 'https://www.twitch.tv/activate',
+        until: now() + (j.expires_in || 1800) * 1000, every: (j.interval || 5) * 1000 };
+      twUi();
+      twPoll();
+    });
+  }
+  function twPoll() {
+    clearTimeout(twDevT);
+    if (!twDev) return;
+    if (now() > twDev.until) { twDev = null; twUi('O código expirou. Toque em Conectar Twitch de novo.'); return; }
+    twDevT = setTimeout(function () {
+      var dev = twDev;
+      if (!dev) return;
+      http('POST', 'https://id.twitch.tv/oauth2/token', TW_FORM, formBody({ client_id: TW_CLIENT, scopes: TW_SCOPES,
+        device_code: dev.code, grant_type: 'urn:ietf:params:oauth:grant-type:device_code' }), function (st, j) {
+        if (twDev !== dev) return; // cancelado
+        if (st === 200 && j.access_token) {
+          twDev = null;
+          twGotToken(j, function () { twUi(); renderDeck(); toast('Twitch conectada como ' + (twAuth.login || '?')); });
+          return;
+        }
+        var m = j.message || '';
+        if (m === 'authorization_pending' || m === 'slow_down' || st === 0) { if (m === 'slow_down') dev.every += 5000; twPoll(); return; }
+        twDev = null;
+        twUi(m === 'access_denied' ? 'A autorização foi recusada na Twitch.' : 'Login não concluído (' + (m || ('erro ' + st)) + ').');
+      });
+    }, twDev.every);
+  }
+  function twCancelLogin() { clearTimeout(twDevT); twDev = null; }
+  function twGotToken(j, done) {
+    var a = { access: j.access_token, refresh: j.refresh_token || (twAuth ? twAuth.refresh : ''),
+      exp: now() + (j.expires_in || 3600) * 1000, login: twAuth ? twAuth.login : '', id: twAuth ? twAuth.id : '' };
+    http('GET', 'https://id.twitch.tv/oauth2/validate', { Authorization: 'OAuth ' + a.access }, null, function (st, v) {
+      if (st === 200 && v.user_id) { a.login = v.login; a.id = v.user_id; }
+      twAuth = a; twSave();
+      if (done) done();
+    });
+  }
+  function twRefresh(cb) {
+    if (!twAuth || !twAuth.refresh) { cb(false); return; }
+    http('POST', 'https://id.twitch.tv/oauth2/token', TW_FORM, formBody({ client_id: TW_CLIENT, grant_type: 'refresh_token',
+      refresh_token: twAuth.refresh }), function (st, j) {
+      if (st === 200 && j.access_token) { twGotToken(j, function () { cb(true); }); return; }
+      if (st === 400 || st === 401) { twAuth = null; twSave(); twUi(); renderDeck(); } // login vencido: precisa conectar de novo
+      cb(false);
+    });
+  }
+  function twLogout() {
+    if (twAuth) http('POST', 'https://id.twitch.tv/oauth2/revoke', TW_FORM, formBody({ client_id: TW_CLIENT, token: twAuth.access }), function () {});
+    twAuth = null; twSave(); twCancelLogin(); clipChan = { login: '', id: '' };
+    twUi(); renderDeck();
+  }
+  // chamada à API Helix com renovação automática do token
+  function twHelix(method, path, cb, retried) {
+    function go() {
+      http(method, 'https://api.twitch.tv/helix/' + path, { Authorization: 'Bearer ' + twAuth.access, 'Client-Id': TW_CLIENT }, null, function (st, j) {
+        if (st === 401 && !retried) { twRefresh(function (ok) { if (ok) twHelix(method, path, cb, true); else cb(401, j); }); return; }
+        cb(st, j);
+      });
+    }
+    if (!twAuth) { cb(401, {}); return; }
+    if (twAuth.exp - now() < 60000) twRefresh(function (ok) { if (ok) go(); else cb(401, {}); });
+    else go();
+  }
+  function clipBroadcaster(cb) {
+    var login = trim(cfg.clipChannel).toLowerCase().replace(/^.*twitch\.tv\//, '').replace(/^#/, '').replace(/[^a-z0-9_].*$/, '');
+    if (!login || login === twAuth.login) { cb(twAuth.id, twAuth.id ? '' : 'Conta da Twitch sem ID — conecte de novo nos Ajustes'); return; }
+    if (clipChan.login === login) { cb(clipChan.id, ''); return; }
+    twHelix('GET', 'users?login=' + encodeURIComponent(login), function (st, j) {
+      var u = j && j.data && j.data[0];
+      if (st === 200 && u) { clipChan = { login: login, id: u.id }; cb(u.id, ''); }
+      else cb('', st === 401 ? 'Login da Twitch expirou — conecte de novo nos Ajustes' : 'Canal "' + login + '" não encontrado na Twitch');
+    });
+  }
+  function makeClip() {
+    if (!twAuth) { toast('Conecte a Twitch nos Ajustes para criar clips'); openSettings(); return; }
+    if (clipBusy) return;
+    clipBusy = true; renderDeck();
+    function done(msg) { clipBusy = false; renderDeck(); if (msg) toast(msg); }
+    clipBroadcaster(function (bid, err) {
+      if (!bid) { done(err); return; }
+      twHelix('POST', 'clips?broadcaster_id=' + encodeURIComponent(bid), function (st, j) {
+        var c = j && j.data && j.data[0];
+        if ((st === 202 || st === 200) && c) {
+          lastClip = c;
+          buzz(60);
+          done('Clip criado! Segure a tecla CLIP para abrir.');
+        } else if (st === 401) done('Login da Twitch expirou — conecte de novo nos Ajustes');
+        else if (st === 404) done('Não deu para clipar: o canal precisa estar ao vivo');
+        else if (st === 403) done('Sem permissão para clipar este canal (clips desativados?)');
+        else if (st === 429) done('Muitos clips seguidos — espere um pouco');
+        else if (st === 0) done('Sem conexão com a Twitch');
+        else done('Twitch: ' + ((j && j.message) || ('erro ' + st)));
+      });
+    });
+  }
+
   /* ---------- tela ligada ---------- */
   var wakeLock = null;
   function keepAwake() {
@@ -1441,6 +1607,8 @@ h3:first-child{margin-top:0}
     $('sPreview').checked = !!cfg.preview; $('sPrevInt').value = String(cfg.prevInt || 1000);
     $('sChatType').value = cfg.chatType; $('sChatVal').value = cfg.chatVal;
     $('sChatMode').value = cfg.chatMode === 'tab' ? 'tab' : 'split';
+    $('sClipChan').value = cfg.clipChannel || '';
+    twUi();
     $('sMsg').innerHTML = msg ? esc(msg) : '';
     $('sMsg').style.display = msg ? 'block' : 'none';
     var lh = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(cfg.host);
@@ -1459,7 +1627,12 @@ h3:first-child{margin-top:0}
   $('pgPrev').onclick = function () { goPage(-1); };
   $('pgNext').onclick = function () { goPage(1); };
   $('btnSet').onclick = function () { openSettings(); };
-  $('btnLive').onclick = function () { buzz(12); doAction('live'); };
+  $('twBtn').onclick = function () {
+    if (twAuth) { if (w.confirm('Desconectar a Twitch deste aparelho?')) twLogout(); }
+    else if (twDev) { twCancelLogin(); twUi(); }
+    else twStartLogin();
+  };
+  $('btnLive').onclick =function () { buzz(12); doAction('live'); };
   $('btnRec').onclick = function () { buzz(12); doAction('rec'); };
   $('btnCancel').onclick = closeSettings;
   $('sChatType').onchange = updChatField;
@@ -1488,6 +1661,8 @@ h3:first-child{margin-top:0}
     cfg.chatType = $('sChatType').value;
     cfg.chatVal = trim($('sChatVal').value);
     cfg.chatMode = $('sChatMode').value;
+    cfg.clipChannel = trim($('sClipChan').value);
+    clipChan = { login: '', id: '' };
     saveCfg();
     closeSettings();
     setC(d.body, 'nometer', !cfg.meters);
@@ -1576,6 +1751,7 @@ h3:first-child{margin-top:0}
   /* ---------- início ---------- */
   if (w.CSS && w.CSS.supports) addC(d.documentElement, 'fr');
   loadCfg();
+  twLoad();
   applyChatSize();
   setC(d.body, 'nometer', !cfg.meters);
   setupChat();
