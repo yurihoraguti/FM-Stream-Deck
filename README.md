@@ -164,6 +164,8 @@ It is **not included in releases for now**. Windows 11 Smart App Control blocks 
 
 ```
 ├── obs-deck.html          # the deck (single file: HTML + CSS + ES5 JS)
+├── favicon.svg / .ico     # browser tab icon (deck and panel)
+├── apple-touch-icon.png   # home screen icon (iOS/Android)
 ├── FM-Stream Deck.bat     # double-click launcher (Windows)
 ├── server/
 │   ├── server.ps1         # local web server + management panel API (PowerShell 5.1+)
