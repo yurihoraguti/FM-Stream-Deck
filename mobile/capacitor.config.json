@@ -1,0 +1,13 @@
+{
+  "appId": "io.github.yurihoraguti.fmstreamdeck",
+  "appName": "FM-Stream Deck",
+  "webDir": "www",
+  "backgroundColor": "#08090b",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

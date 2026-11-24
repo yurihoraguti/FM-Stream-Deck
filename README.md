@@ -82,6 +82,26 @@ python -m http.server 8080
 
 Then open `http://<PC-IP>:8080/obs-deck.html?host=<PC-IP>` on your phone.
 
+### 📱 Android app (prototype)
+The Android app runs the same deck **without the PC server**, so it works with OBS on Windows, macOS or Linux.
+
+1. Download **FM-Stream-Deck-android.apk** from the [latest release](https://github.com/yurihoraguti/FM-Stream-Deck/releases/latest) on your phone and install it. Android asks you to allow installing apps from your browser or file manager.
+2. In OBS, open **Tools → WebSocket Server Settings → Show Connect Info**.
+3. In the app, tap **Escanear QR code do OBS** and point the camera at that QR code. The app fills in the IP, port and password and connects.
+
+The phone must be on the same network as the PC. QR scanning uses Google Play services; without them, type the address and password instead.
+
+> **Prototype notes:** the APK is debug-signed for now, so a new version may need the old one uninstalled first. It isn't on the Play Store yet.
+
+To build it yourself (Node.js 22, JDK 21 and the Android SDK):
+
+```bash
+cd mobile
+npm ci
+bash scripts/prepare-android.sh
+cd android && ./gradlew assembleDebug
+```
+
 ## ⚙️ Configuration
 
 Everything is configured in the in-app **Settings** (⚙️) and saved on each device. You can also pre-fill settings with URL parameters, which is handy for bookmarks or for setting up several devices:
@@ -172,6 +192,7 @@ It is **not included in releases for now**. Windows 11 Smart App Control blocks 
 │   ├── panel.html         # management panel (QR codes, firewall, devices, log)
 │   ├── FMStreamDeck.cs    # same server as a standalone .exe (not shipped yet, unsigned)
 │   └── build.bat          # compiles the .exe
+├── mobile/                # Android app (Capacitor): config, icon, prepare script
 ├── docs/                  # screenshots
 └── .github/workflows/     # CI: compile check, package and release
 ```

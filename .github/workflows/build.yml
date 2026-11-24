@@ -11,7 +11,48 @@ permissions:
   contents: write
 
 jobs:
+  # Decides which platforms to build from the files changed. Tags and manual runs always build both
+  # (the release needs both). Files shared by both apps (the deck, icons, this workflow) build both.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      windows: ${{ steps.filter.outputs.windows }}
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed platforms
+        id: filter
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          both() { echo "windows=true" >> "$GITHUB_OUTPUT"; echo "android=true" >> "$GITHUB_OUTPUT"; echo "Building both: $1"; exit 0; }
+          [[ "$GITHUB_REF" == refs/tags/* ]] && both "tag"
+          [[ "$EVENT" == workflow_dispatch ]] && both "manual run"
+          if [[ "$EVENT" == pull_request ]]; then
+            range="$BASE_SHA...$GITHUB_SHA"
+          elif [[ -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            range="$BEFORE..$GITHUB_SHA"
+          else
+            both "no previous commit to compare"
+          fi
+          files=$(git diff --name-only $range)
+          echo "Changed files:"; echo "$files"
+          shared='^(obs-deck\.html|favicon\.(svg|ico)|apple-touch-icon\.png|\.github/workflows/build\.yml)$'
+          windows=false; android=false
+          grep -qE "$shared|^server/|^FM-Stream Deck\.bat$|^README\.md$|^LICENSE$" <<< "$files" && windows=true
+          grep -qE "$shared|^mobile/" <<< "$files" && android=true
+          echo "windows=$windows" >> "$GITHUB_OUTPUT"; echo "android=$android" >> "$GITHUB_OUTPUT"
+          echo "windows=$windows android=$android"
+
   windows:
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -54,13 +95,81 @@ jobs:
           name: FM-Stream-Deck-windows
           path: dist/FM-Stream-Deck-windows.zip
 
+  # Android app (prototype): Capacitor wraps obs-deck.html and reads OBS's own QR code (obsws://).
+  # The Android project is generated here by mobile/scripts/prepare-android.sh, not committed.
+  android:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # tag v1.2.3 -> versionName 1.2.3, versionCode 10203; other builds -> 0.0.0-dev.<run>, versionCode <run>
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            v="${GITHUB_REF_NAME#v}"
+            [[ "$v" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || { echo "Tag must look like v1.2.3"; exit 1; }
+            code=$(( BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3] ))
+          else
+            v="0.0.0-dev.$GITHUB_RUN_NUMBER"; code=$GITHUB_RUN_NUMBER
+          fi
+          echo "name=$v" >> "$GITHUB_OUTPUT"; echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Android project
+        working-directory: mobile
+        run: |
+          npm ci --no-audit --no-fund
+          bash scripts/prepare-android.sh "${{ steps.ver.outputs.name }}" "${{ steps.ver.outputs.code }}"
+
+      # Debug-signed for now: installable by sideloading, no keystore needed yet.
+      - name: Build APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/FM-Stream-Deck-android.apk
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: FM-Stream-Deck-android
+          path: dist/FM-Stream-Deck-android.apk
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/FM-Stream-Deck-windows.zip
+          files: |
+            dist/FM-Stream-Deck-windows.zip
+            dist/FM-Stream-Deck-android.apk
           generate_release_notes: true
           body: |
             ## Download
             **FM-Stream-Deck-windows.zip** — extract it and double-click **`FM-Stream Deck.bat`** (Windows 10/11, nothing to install).
             The management panel opens in your browser: scan the QR code with your phone to open the deck.
+
+            **FM-Stream-Deck-android.apk** — Android app (prototype), no PC server needed. Install it on the phone (allow installing from this source), then tap **Escanear QR code do OBS** and scan the code from OBS → Tools → WebSocket Server Settings → Show Connect Info.
