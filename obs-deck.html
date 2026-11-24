@@ -200,6 +200,11 @@ h3:first-child{margin-top:0}
 .row{margin-top:14px}
 .btn{height:44px;padding:0 16px;border-radius:8px;border:0;background:#2c313c;font-weight:600;font-size:15px;margin:0 6px 6px 0}
 .btn.pri{background:#5b8cff;color:#fff}
+/* app Android: ler o QR code do OBS */
+#sScanBox{display:none;margin:4px 0 6px}
+.native #sScanBox{display:block}
+#sScan{width:100%;margin:0}
+#sScan svg{margin:-3px 8px 0 0}
 #toast{display:none;position:fixed;left:10px;right:10px;bottom:72px;z-index:60;background:#2c313c;color:#fff;border-radius:10px;padding:12px 14px;text-align:center;font-size:14px;-webkit-box-shadow:0 4px 16px rgba(0,0,0,.5);box-shadow:0 4px 16px rgba(0,0,0,.5)}
 </style>
 </head>
@@ -251,6 +256,10 @@ h3:first-child{margin-top:0}
   <h3>Conexão com o OBS</h3>
   <div id="sMsg" class="warn"></div>
   <div id="sHttps" class="warn">Esta página está aberta em HTTPS. O navegador bloqueia a conexão <b>ws://</b> com o OBS na rede local. Abra a página por <b>http://</b>.</div>
+  <div id="sScanBox">
+    <button id="sScan" class="btn pri"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 12h8"/></svg>Escanear QR code do OBS</button>
+    <div class="hint">No OBS: <b>Ferramentas &rarr; Configurações do servidor WebSocket &rarr; Mostrar informações de conexão</b>. O celular precisa estar no mesmo Wi-Fi do PC. Ou preencha abaixo.</div>
+  </div>
   <label for="sHost">Endereço (IP) do PC com o OBS</label>
   <input id="sHost" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="192.168.0.10">
   <label for="sPort">Porta</label>
@@ -402,6 +411,8 @@ h3:first-child{margin-top:0}
     chatMode: 'split', chatSplit: 40, chatMin: false, clipChannel: '',
     preview: true, prevInt: 1000, prevMin: false };
   var hadCfg = false, urlPage = '';
+  // app Android (Capacitor): a página roda dentro do app, sem o servidor do PC
+  var NATIVE = !!(w.Capacitor && w.Capacitor.isNativePlatform && w.Capacitor.isNativePlatform());
   function loadCfg() {
     var s = store('obsdeck') || store('obsctl'); // aproveita a config da versão anterior
     if (s) {
@@ -425,7 +436,8 @@ h3:first-child{margin-top:0}
       else if (key === 'chatmode' && (val === 'split' || val === 'tab')) cfg.chatMode = val;
       else if (key === 'page' && /^(all|scenes|audio|actions)$/.test(val)) urlPage = val;
     }
-    if (!cfg.host) cfg.host = w.location.hostname || 'localhost';
+    // no app o endereço vem do QR code do OBS; "localhost" ali seria o próprio celular
+    if (!cfg.host && !NATIVE) cfg.host = w.location.hostname || 'localhost';
     if (!(cfg.hidden instanceof Array)) cfg.hidden = [];
   }
   function saveCfg() {
@@ -1627,6 +1639,38 @@ h3:first-child{margin-top:0}
   }
   function closeSettings() { $('set').style.display = 'none'; }
 
+  /* ---------- app: QR code do OBS (obsws://IP:porta/senha) ---------- */
+  function parseObsQr(s) {
+    var m = /^obsws:\/\/(\[[^\]]+\]|[^\/:]+):(\d+)(?:\/(.*))?$/i.exec(trim(s));
+    if (!m) return null;
+    var pass = m[3] || '';
+    try { pass = decodeURIComponent(pass); } catch (e) {}
+    return { host: m[1], port: m[2], pass: pass };
+  }
+  function scanObsQr() {
+    var bs = NATIVE && w.Capacitor.Plugins && w.Capacitor.Plugins.BarcodeScanner;
+    if (!bs) { toast('Leitor de QR code indisponível'); return; }
+    function fail(e) {
+      var m = String((e && e.message) || e || '');
+      if (!/cancel/i.test(m)) toast('Não foi possível ler o QR code' + (m ? ': ' + m : ''));
+    }
+    function scan() {
+      bs.scan({ formats: ['QR_CODE'] }).then(function (r) {
+        var b = r && r.barcodes && r.barcodes[0], c = b ? parseObsQr(b.rawValue || b.displayValue || '') : null;
+        if (!c) { toast('Este não é o QR code do OBS. Use “Mostrar informações de conexão”.'); return; }
+        $('sHost').value = c.host; $('sPort').value = c.port; $('sPass').value = c.pass;
+        $('btnSave').onclick();
+      }, fail);
+    }
+    // o leitor usa o módulo do Google Play Services, baixado na primeira vez
+    if (!bs.isGoogleBarcodeScannerModuleAvailable) { scan(); return; }
+    bs.isGoogleBarcodeScannerModuleAvailable().then(function (r) {
+      if (r && r.available) { scan(); return; }
+      toast('Preparando o leitor de QR code… tente de novo em alguns segundos.');
+      bs.installGoogleBarcodeScannerModule().then(null, fail);
+    }, function () { scan(); });
+  }
+
   /* ---------- ligações da interface ---------- */
   $('tab_all').onclick = function () { setPage('all'); };
   $('tab_scenes').onclick = function () { setPage('scenes'); };
@@ -1644,6 +1688,8 @@ h3:first-child{margin-top:0}
   $('btnLive').onclick =function () { buzz(12); doAction('live'); };
   $('btnRec').onclick = function () { buzz(12); doAction('rec'); };
   $('btnCancel').onclick = closeSettings;
+  $('sScan').onclick = scanObsQr;
+  setC(d.body, 'native', NATIVE);
   $('sChatType').onchange = updChatField;
   $('vSl').oninput = volMove;
   $('vSl').onchange = volMove;
