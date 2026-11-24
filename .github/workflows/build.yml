@@ -11,7 +11,48 @@ permissions:
   contents: write
 
 jobs:
+  # Decides which platforms to build from the files changed. Tags and manual runs always build both
+  # (the release needs both). Files shared by both apps (the deck, icons, this workflow) build both.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      windows: ${{ steps.filter.outputs.windows }}
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed platforms
+        id: filter
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          both() { echo "windows=true" >> "$GITHUB_OUTPUT"; echo "android=true" >> "$GITHUB_OUTPUT"; echo "Building both: $1"; exit 0; }
+          [[ "$GITHUB_REF" == refs/tags/* ]] && both "tag"
+          [[ "$EVENT" == workflow_dispatch ]] && both "manual run"
+          if [[ "$EVENT" == pull_request ]]; then
+            range="$BASE_SHA...$GITHUB_SHA"
+          elif [[ -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            range="$BEFORE..$GITHUB_SHA"
+          else
+            both "no previous commit to compare"
+          fi
+          files=$(git diff --name-only $range)
+          echo "Changed files:"; echo "$files"
+          shared='^(obs-deck\.html|favicon\.(svg|ico)|apple-touch-icon\.png|\.github/workflows/build\.yml)$'
+          windows=false; android=false
+          grep -qE "$shared|^server/|^FM-Stream Deck\.bat$|^README\.md$|^LICENSE$" <<< "$files" && windows=true
+          grep -qE "$shared|^mobile/" <<< "$files" && android=true
+          echo "windows=$windows" >> "$GITHUB_OUTPUT"; echo "android=$android" >> "$GITHUB_OUTPUT"
+          echo "windows=$windows android=$android"
+
   windows:
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -57,6 +98,8 @@ jobs:
   # Android app (prototype): Capacitor wraps obs-deck.html and reads OBS's own QR code (obsws://).
   # The Android project is generated here by mobile/scripts/prepare-android.sh, not committed.
   android:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
