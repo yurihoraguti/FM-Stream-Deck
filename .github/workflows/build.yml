@@ -45,7 +45,7 @@ jobs:
         run: |
           $out = 'dist\FM-Stream-Deck'
           New-Item -ItemType Directory -Force "$out\server" | Out-Null
-          Copy-Item obs-deck.html, 'FM-Stream Deck.bat', README.md, LICENSE $out
+          Copy-Item obs-deck.html, favicon.svg, favicon.ico, apple-touch-icon.png, 'FM-Stream Deck.bat', README.md, LICENSE $out
           Copy-Item server\server.ps1, server\panel.html "$out\server"
           Compress-Archive -Path "$out\*" -DestinationPath dist\FM-Stream-Deck-windows.zip -Force
 
