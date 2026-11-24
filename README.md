@@ -70,6 +70,9 @@ The link already points the deck to the OBS running on that PC, so it connects r
 
 > **Tip:** add the page to your home screen for a full-screen, app-like experience.
 
+### Updates
+When a new release is out, the management panel shows **Nova versão disponível**. Click **Atualizar agora**: the server downloads the release from GitHub, replaces its files and restarts on the same port. Your deck settings live on each device, so they are kept. Copies cloned with git skip this check; update them with `git pull`.
+
 ### Not on Windows?
 Any static web server on the OBS machine works, as long as it serves the page over **plain `http://`** on your local network:
 
@@ -99,7 +102,7 @@ Example: `http://192.168.0.10:8080/obs-deck.html?host=192.168.0.10&twitch=yourch
 ### Server options
 
 ```bat
-"FM-Stream Deck.bat" -Port 8080 -ObsPort 4455 -NoPanel -NoFirewall
+"FM-Stream Deck.bat" -Port 8080 -ObsPort 4455 -NoPanel -NoFirewall -NoUpdateCheck
 "FM-Stream Deck.bat" -RemoveFirewall
 ```
 
@@ -109,6 +112,7 @@ Example: `http://192.168.0.10:8080/obs-deck.html?host=192.168.0.10&twitch=yourch
 | `-ObsPort` | OBS WebSocket port used for the links, OBS detection and firewall rule (default `4455`) |
 | `-NoPanel` | Don't open the management panel automatically |
 | `-NoFirewall` | Don't check or change the firewall |
+| `-NoUpdateCheck` | Don't check GitHub for new releases |
 | `-RemoveFirewall` | Delete the firewall rules created by FM-Stream Deck and exit |
 
 ## 🧠 How it works
@@ -144,6 +148,7 @@ FM-Stream Deck has **no telemetry, analytics or accounts**. The program does not
 - If **you** enable a chat source, the deck connects to that service: Twitch chat (`irc-ws.chat.twitch.tv`, anonymous read-only, plus emote images from `static-cdn.jtvnw.net`), YouTube live chat, or the URL you provide.
 - If **you** connect a Twitch account for clips, the deck signs in with Twitch's device code flow (`id.twitch.tv`). It calls the Twitch API (`api.twitch.tv`) only when you press the CLIP key, and the only permission it requests is `clips:edit`. The token is stored only in that device's browser, and **Desconectar** removes and revokes it.
 - Settings are stored only in each device's browser (`localStorage`).
+- The server checks for a new release at startup and every 12 hours with one anonymous request to `api.github.com` (this project's latest release). It downloads the release from GitHub only when you click **Atualizar agora**. Turn the check off with `-NoUpdateCheck`.
 
 ## 🧹 Uninstall
 
@@ -194,6 +199,14 @@ Issues and pull requests are welcome! Please keep the deck **dependency-free and
 ```bash
 npm install acorn
 node -e "const h=require('fs').readFileSync('obs-deck.html','utf8');require('acorn').parse(h.split('<script>')[1].split('</script>')[0],{ecmaVersion:5});console.log('ES5 OK')"
+```
+
+### Publishing a release
+Push a tag like `v1.2.3`. CI writes that version into the server, builds the zip and publishes the GitHub release, and running copies offer the update in their panel:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
 ```
 
 ## 📄 License

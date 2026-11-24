@@ -45,6 +45,8 @@ td.p{white-space:normal;word-break:break-all;font-family:Menlo,Consolas,monospac
 #off{display:none;margin:60px auto;max-width:520px;text-align:center}
 .stopped #off{display:block}.stopped main,.stopped .hact{display:none}
 #msg{display:none;margin-bottom:16px;padding:10px 14px;border-radius:10px;background:#3a2a12;border:1px solid #7a5a1c;color:#f5d48a}
+#upd{display:none;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;padding:12px 16px;border-radius:12px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.4)}
+#upd a{color:#9db8ff}
 code{font-family:Menlo,Consolas,monospace;background:#0d0f13;padding:1px 5px;border-radius:4px}
 </style>
 </head>
@@ -60,6 +62,10 @@ code{font-family:Menlo,Consolas,monospace;background:#0d0f13;padding:1px 5px;bor
 
 <main>
   <div id="msg"></div>
+  <div id="upd">
+    <span id="updText"></span>
+    <span><a id="updNotes" href="#" target="_blank" rel="noopener">Ver novidades</a><button id="updGo" class="btn pri">Atualizar agora</button></span>
+  </div>
   <div class="grid">
     <section class="card wide">
       <h2>Abrir no celular ou tablet</h2>
@@ -92,6 +98,7 @@ code{font-family:Menlo,Consolas,monospace;background:#0d0f13;padding:1px 5px;bor
       <div class="row"><span>Ativo há</span><b id="uptime">—</b></div>
       <div class="row"><span>Porta</span><b id="port">—</b></div>
       <div class="row"><span>Tipo</span><b id="kind">—</b></div>
+      <div class="row"><span>Atualizações</span><span id="updState" class="mut">—</span></div>
     </section>
 
     <section class="card wide">
@@ -259,10 +266,30 @@ function qrSvg(text) {
   function dur(s) { var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? h + ' h ' + m + ' min' : (m ? m + ' min' : s + ' s'); }
   function hhmm(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR'); }
   function ago(iso) { var s = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000)); return s < 60 ? 'agora' : 'há ' + dur(s); }
-  var linksKey = '', failures = 0, stopped = false;
+  var linksKey = '', failures = 0, stopped = false, firstVersion = null, updating = false;
+
+  function renderUpdate(st) {
+    var u = st.update || {}, s;
+    if (!u.enabled) s = st.version === 'dev' ? 'desligadas (cópia do git)' : 'desligadas';
+    else if (u.available) s = 'v' + u.latest + ' disponível';
+    else if (u.checking || !u.latest && !u.error) s = 'verificando…';
+    else if (u.error) s = 'não verificado (' + u.error + ')';
+    else s = 'em dia';
+    $('updState').textContent = s;
+    if (updating) return;
+    $('upd').style.display = u.enabled && u.available ? 'flex' : 'none';
+    if (u.available) {
+      $('updText').innerHTML = 'Nova versão <b>v' + esc(u.latest) + '</b> disponível (você está na v' + esc(st.version) + ').';
+      $('updNotes').href = u.notes || '#';
+    }
+  }
 
   function render(st) {
+    // o servidor reiniciou com outra versão (atualização): recarrega para pegar o painel novo
+    if (firstVersion === null) firstVersion = st.version;
+    else if (st.version !== firstVersion) { location.reload(); return; }
     $('ver').textContent = 'Painel · v' + st.version;
+    renderUpdate(st);
     $('up').textContent = 'ativo';
     $('uptime').textContent = dur(st.uptime);
     $('port').textContent = st.port;
@@ -322,7 +349,7 @@ function qrSvg(text) {
     if (stopped) return;
     xhr('GET', '/api/status', function (ok, d) {
       if (ok && d) { failures = 0; render(d); }
-      else if (++failures >= 3) { $('up').className = 'pill bad'; $('up').textContent = 'sem resposta'; }
+      else if (++failures >= 3) { $('up').className = 'pill ' + (updating ? 'warn' : 'bad'); $('up').textContent = updating ? 'reiniciando…' : 'sem resposta'; }
       setTimeout(poll, 2000);
     });
   }
@@ -340,6 +367,17 @@ function qrSvg(text) {
   $('stop').onclick = function () {
     if (!confirm('Parar o servidor? Os aparelhos deixam de abrir o deck até você iniciar de novo.')) return;
     xhr('POST', '/api/stop', function () { stopped = true; document.body.className = 'stopped'; });
+  };
+  $('updGo').onclick = function () {
+    if (!confirm('Atualizar agora? O servidor reinicia em alguns segundos; os aparelhos reconectam sozinhos.')) return;
+    var btn = this;
+    btn.disabled = true; updating = true;
+    $('updText').textContent = 'Baixando e instalando a atualização…';
+    xhr('POST', '/api/update/apply', function (ok, d) {
+      if (ok && d && d.ok) { $('updText').textContent = 'Atualizado. Reiniciando o servidor…'; return; }
+      updating = false; btn.disabled = false;
+      note((d && d.error) || 'Não foi possível atualizar. Tente de novo ou baixe o release manualmente.');
+    });
   };
   $('links').onclick = function (e) {
     var t = e.target, u = t.getAttribute && t.getAttribute('data-copy');

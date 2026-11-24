@@ -21,12 +21,12 @@ using System.Threading;
 [assembly: AssemblyTitle("FM-Stream Deck")]
 [assembly: AssemblyProduct("FM-Stream Deck")]
 [assembly: AssemblyDescription("Servidor da rede local do FM-Stream Deck")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("0.0.0.0")]
+[assembly: AssemblyFileVersion("0.0.0.0")]
 
 class FMStreamDeck
 {
-    const string Version = "1.0.0";
+    const string Version = "dev"; // o CI troca pela versão da tag
     static string baseDir;
     static int port = 8080, obsPort = 4455;
     static bool noFirewall;

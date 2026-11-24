@@ -1,17 +1,18 @@
 ﻿# FM-Stream Deck (Free Mobile Stream Deck) - servidor web portátil para a rede local.
 # PowerShell 5.1+ (já vem no Windows 10/11), sem instalar nada. Abra pelo "FM-Stream Deck.bat".
 #
-# Parâmetros: -Port 8080  -ObsPort 4455  -NoFirewall  -RemoveFirewall  -NoPanel
+# Parâmetros: -Port 8080  -ObsPort 4455  -NoFirewall  -RemoveFirewall  -NoPanel  -NoUpdateCheck
 # Licença MIT.
 param(
     [Alias('Porta')][int]$Port = 8080,
     [Alias('ObsPorta')][int]$ObsPort = 4455,
     [Alias('SemFirewall')][switch]$NoFirewall,
     [Alias('RemoverFirewall')][switch]$RemoveFirewall,
-    [Alias('SemPainel')][switch]$NoPanel
+    [Alias('SemPainel')][switch]$NoPanel,
+    [Alias('SemAtualizacao')][switch]$NoUpdateCheck
 )
 
-$Version = '1.0.0'
+$Version = 'dev'   # o CI troca pela versão da tag (v1.2.3) ao publicar um release
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
 try { $Host.UI.RawUI.WindowTitle = 'FM-Stream Deck - servidor' } catch {}
@@ -105,6 +106,85 @@ function Test-Obs {
     return $script:ObsCache.ok
 }
 
+# ---------------- atualização (GitHub Releases) ----------------
+# Só funciona em cópias baixadas de um release (versão numérica). Num clone do git a versão é 'dev' e fica desligada.
+$Repo = 'yurihoraguti/FM-Stream-Deck'
+$ZipName = 'FM-Stream-Deck-windows.zip'
+$UpdEnabled = ($Version -match '^\d+\.\d+\.\d+$') -and -not $NoUpdateCheck
+$Upd = @{ task = $null; client = $null; checked = [datetime]::MinValue; latest = $null; notes = $null; zip = $null; error = $null }
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+
+function New-WebClient([bool]$api) {
+    $wc = New-Object Net.WebClient
+    $wc.Headers['User-Agent'] = "FM-Stream-Deck/$script:Version"
+    if ($api) { $wc.Headers['Accept'] = 'application/vnd.github+json' }
+    return $wc
+}
+# consulta em segundo plano para não travar o servidor; o resultado é lido no próximo /api/status
+function Start-UpdateCheck {
+    if (-not $script:UpdEnabled -or $script:Upd.task) { return }
+    $script:Upd.checked = Get-Date
+    try {
+        $script:Upd.client = New-WebClient $true
+        $script:Upd.task = $script:Upd.client.DownloadStringTaskAsync("https://api.github.com/repos/$script:Repo/releases/latest")
+    } catch { $script:Upd.error = 'sem acesso ao GitHub' }
+}
+function Update-State {
+    if (-not $script:UpdEnabled) { return [ordered]@{ enabled = $false } }
+    $t = $script:Upd.task
+    if ($t -and $t.IsCompleted) {
+        $script:Upd.task = $null
+        try { $script:Upd.client.Dispose() } catch {}
+        if ($t.Status -eq 'RanToCompletion') {
+            try {
+                $r = $t.Result | ConvertFrom-Json
+                $asset = @($r.assets | Where-Object { $_.name -eq $script:ZipName })[0]
+                $script:Upd.latest = ([string]$r.tag_name).TrimStart('v')
+                $script:Upd.notes = [string]$r.html_url
+                $script:Upd.zip = if ($asset) { [string]$asset.browser_download_url } else { $null }
+                $script:Upd.error = $null
+            } catch { $script:Upd.error = 'resposta inválida do GitHub' }
+        } else { $script:Upd.error = 'sem acesso ao GitHub' }
+    }
+    if (((Get-Date) - $script:Upd.checked).TotalHours -ge 12) { Start-UpdateCheck }
+    $avail = $false
+    try { $avail = [bool]$script:Upd.zip -and ([version]$script:Upd.latest -gt [version]$script:Version) } catch {}
+    return [ordered]@{
+        enabled = $true; checking = [bool]$script:Upd.task; latest = $script:Upd.latest
+        available = $avail; notes = $script:Upd.notes; error = $script:Upd.error
+    }
+}
+# baixa o zip do release, confere o conteúdo e copia por cima desta pasta (o servidor reinicia em seguida)
+function Install-Update {
+    if (-not (Update-State).available) { return 'Nenhuma atualização disponível.' }
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) ('fmsd-update-' + [guid]::NewGuid().ToString('N'))
+    try {
+        New-Item -ItemType Directory -Force $tmp | Out-Null
+        $zip = Join-Path $tmp $script:ZipName
+        $wc = New-WebClient $false
+        try { $wc.DownloadFile($script:Upd.zip, $zip) } finally { $wc.Dispose() }
+        $dir = Join-Path $tmp 'files'
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($zip, $dir)
+        foreach ($f in 'obs-deck.html', 'FM-Stream Deck.bat', 'server\server.ps1', 'server\panel.html') {
+            if (-not (Test-Path -LiteralPath (Join-Path $dir $f) -PathType Leaf)) { return "O pacote baixado está incompleto (falta $f)." }
+        }
+        # copia só o que mudou: o .bat que está rodando não é regravado se for igual (o cmd o lê enquanto executa)
+        foreach ($f in Get-ChildItem -LiteralPath $dir -Recurse -File) {
+            $dst = Join-Path $script:Base $f.FullName.Substring($dir.Length + 1)
+            if ((Test-Path -LiteralPath $dst -PathType Leaf) -and
+                (Get-FileHash -LiteralPath $dst).Hash -eq (Get-FileHash -LiteralPath $f.FullName).Hash) { continue }
+            New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null
+            Copy-Item -LiteralPath $f.FullName -Destination $dst -Force
+        }
+        return $null
+    } catch {
+        return 'Falha ao atualizar: ' + $_.Exception.Message
+    } finally {
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # ---------------- abre a porta ----------------
 $listener = $null
 for ($p = $Port; $p -le $Port + 10; $p++) {
@@ -122,6 +202,7 @@ $Started = Get-Date
 $Clients = @{}
 $Log = New-Object Collections.ArrayList
 $StopNow = $false
+$RestartNow = $false
 $sfx = if ($Port -eq 80) { '' } else { ":$Port" }
 
 Write-Host ''
@@ -146,6 +227,7 @@ Write-Host "  Painel de gerenciamento (só neste PC): http://localhost$sfx/panel
 Write-Host '  Deixe esta janela aberta. Para parar, use o painel, feche a janela ou aperte Ctrl+C.'
 Write-Host ''
 if (-not $NoPanel) { try { Start-Process "http://localhost$sfx/panel" } catch {} }
+Start-UpdateCheck
 
 # ---------------- HTTP ----------------
 function Add-Log([string]$ip, [string]$method, [string]$target, [int]$code) {
@@ -174,7 +256,7 @@ function Status-Json {
         started = $Started.ToString('o'); uptime = [int]((Get-Date) - $Started).TotalSeconds
         port = $Port; obsPort = $ObsPort; obsReachable = (Test-Obs)
         firewallChecked = (-not $NoFirewall); firewall = (Firewall-State)
-        urls = $ul; clients = $cl; log = $lg
+        urls = $ul; clients = $cl; log = $lg; update = (Update-State)
     }
     return ($o | ConvertTo-Json -Depth 5 -Compress)
 }
@@ -251,6 +333,16 @@ function Handle($client) {
                     Send-Json $ns '{"ok":true}'; Add-Log $remote $method $path 200
                     $script:StopNow = $true; return
                 }
+                if ($path -eq '/api/update/apply') {
+                    Write-Host '  Baixando a atualização...'
+                    $err = Install-Update
+                    if ($err) {
+                        Write-Host "  $err" -ForegroundColor Yellow
+                        Send-Json $ns ([ordered]@{ ok = $false; error = $err } | ConvertTo-Json -Compress); Add-Log $remote $method $path 200; return
+                    }
+                    Send-Json $ns '{"ok":true}'; Add-Log $remote $method $path 200
+                    $script:RestartNow = $true; $script:StopNow = $true; return
+                }
                 Send-Text $ns 404 'Not Found' 'Não encontrado' $false; return
             }
             if (-not (Test-Path -LiteralPath $PanelFile)) { Send-Text $ns 404 'Not Found' 'panel.html não encontrado' $headOnly; return }
@@ -297,7 +389,15 @@ try {
         if (-not $listener.Pending()) { Start-Sleep -Milliseconds 30; continue } # permite Ctrl+C
         Handle ($listener.AcceptTcpClient())
     }
-    Write-Host '  Servidor parado pelo painel.'
+    if (-not $RestartNow) { Write-Host '  Servidor parado pelo painel.' }
 } finally {
     $listener.Stop()
+}
+
+# depois de atualizar: abre a versão nova na mesma porta (o painel aberto reconecta sozinho)
+if ($RestartNow) {
+    Write-Host "  Atualizado para a versão $($Upd.latest). Reiniciando..."
+    $argv = @('-Port', $Port, '-ObsPort', $ObsPort, '-NoPanel')
+    if ($NoFirewall) { $argv += '-NoFirewall' }
+    Start-Process -FilePath (Join-Path $Base 'FM-Stream Deck.bat') -ArgumentList $argv -WorkingDirectory $Base
 }

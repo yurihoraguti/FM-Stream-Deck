@@ -16,6 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # On a v* tag, write the tag's version into the sources so the release reports it
+      # (and the built-in updater can compare it). Other builds keep 'dev', which turns the updater off.
+      - name: Stamp version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $v = '${{ github.ref_name }}'.TrimStart('v')
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Tag must look like v1.2.3 (got '${{ github.ref_name }}')" }
+          function Set-Version([string]$file, [string]$pattern, [string]$value, [bool]$bom) {
+            $text = [IO.File]::ReadAllText($file)
+            if ($text -notmatch $pattern) { throw "Version marker not found in $file" }
+            [IO.File]::WriteAllText($file, ($text -replace $pattern, $value), (New-Object Text.UTF8Encoding($bom)))
+          }
+          Set-Version 'server\server.ps1' "\`$Version = 'dev'" "`$Version = '$v'" $true
+          Set-Version 'server\FMStreamDeck.cs' 'const string Version = "dev"' "const string Version = `"$v`"" $false
+          Set-Version 'server\FMStreamDeck.cs' '"0\.0\.0\.0"' "`"$v.0`"" $false
+          Write-Host "Version $v"
+
       # The standalone .exe is not shipped yet (it needs a paid code-signing certificate),
       # but we still compile it so the source keeps building.
       - name: Compile check (FMStreamDeck.exe)
